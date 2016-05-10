@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Funders test page</title>
+    <link type="text/css" rel="stylesheet" href="funders.css"/>
+    <script type="text/javascript" src="../js/funders.js"></script>
+</head>
+
+<body>
+    <form id="paymentForm" action="http://localhost:3000/payments" method="POST">
+        <div id="paymentType">
+            <label>Payment Type</label>
+            <br>
+            <input type="radio" name="paymentType" value="credit_card" checked>Credit Card
+            <br>
+            <input type="radio" name="paymentType" value="bank_account_ach">Bank Account
+            <br>
+            <input type="radio" name="paymentType" value="paypal">Paypal
+            <br>
+            <input type="radio" name="paymentType" value="bitcoin">Bitcoin
+        </div>
+        <br>
+        <div class="amount">
+            <label>Amount: </label>
+            <input type="number" name="amount"><br>
+        </div>
+        <input type="hidden" name="amount" value="200"/>
+        <input type="submit" value="Submit">
+        <input type="button" value="Clear">
+    </form>
+
+    <!--<script type="text/javascript" src="main.js"></script>-->
+</body>
+
+</html>

@@ -1,0 +1,665 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"github.com/go-martini/martini"
+	"github.com/hjames9/funders"
+	_ "github.com/lib/pq"
+	"github.com/martini-contrib/binding"
+	"github.com/martini-contrib/cors"
+	"github.com/martini-contrib/secure"
+	"github.com/satori/go.uuid"
+	"log"
+	"math"
+	"net/http"
+	"os"
+	"os/signal"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+)
+
+const (
+	GET_PROJECTS_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.project_backers"
+	GET_PROJECT_QUERY   = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.project_backers WHERE name = $1"
+	GET_PERKS_QUERY     = "SELECT id, project_id, project_name, name, description, price, available, num_claimed FROM funders.perk_claims WHERE project_name = $1"
+	GET_PAYMENT_QUERY   = "SELECT id, project_id, perk_id, state FROM funders.payments WHERE id = $1"
+	ADD_PAYMENT_QUERY   = "INSERT INTO funders.payments(id, project_id, perk_id, payment_type, amount, state, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;"
+	EMAIL_REGEX         = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
+	PROJECT_URL         = "/projects"
+	PERKS_URL           = "/perks"
+	PAYMENTS_URL        = "/payments"
+	USER_AGENT_HEADER   = "User-Agent"
+	CONTENT_TYPE_HEADER = "Content-Type"
+	LOCATION_HEADER     = "Location"
+	ORIGIN_HEADER       = "Origin"
+	JSON_CONTENT_TYPE   = "application/json"
+	BOT_ERROR           = "BotError"
+	GET_METHOD          = "GET"
+	POST_METHOD         = "POST"
+)
+
+type Payment struct {
+	Id          string
+	ProjectId   int64   `form:"projectid" binding:"required"`
+	PerkId      int64   `form:"perkid" binding:"required"`
+	PaymentType string  `form:"paymenttype" binding:"required" json:"-"`
+	Amount      float64 `form:"amount" binding:"required" json:"-"`
+	State       string
+}
+
+type Response struct {
+	Code    int
+	Message string
+	Id      int64 `json:",omitempty"`
+}
+
+type RequestLocation int
+
+const (
+	Header RequestLocation = 1 << iota
+	Body
+)
+
+type Position int
+
+const (
+	First Position = 1 << iota
+	Last
+)
+
+type BotDetection struct {
+	FieldLocation RequestLocation
+	FieldName     string
+	FieldValue    string
+	MustMatch     bool
+	PlayCoy       bool
+}
+
+func (botDetection BotDetection) IsBot(req *http.Request) bool {
+	var botField string
+
+	switch botDetection.FieldLocation {
+	case Header:
+		botField = req.Header.Get(botDetection.FieldName)
+		break
+	case Body:
+		botField = req.FormValue(botDetection.FieldName)
+		break
+	}
+
+	if botDetection.MustMatch && botDetection.FieldValue == botField {
+		return false
+	} else if !botDetection.MustMatch && botDetection.FieldValue != botField {
+		return false
+	}
+
+	return true
+}
+
+var stringSizeLimit int
+var emailRegex *regexp.Regexp
+var botDetection BotDetection
+
+func (payment Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
+	errors = validateSizeLimit(payment.PaymentType, "paymenttype", stringSizeLimit, errors)
+	return errors
+}
+
+func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
+	if len(field) > sizeLimit {
+		message := fmt.Sprintf("Field %s size %d is too large", fieldName, len(field))
+		errors = addError(errors, []string{fieldName}, binding.TypeError, message)
+	}
+	return errors
+}
+
+func addError(errors binding.Errors, fieldNames []string, classification string, message string) binding.Errors {
+	errors = append(errors, binding.Error{
+		FieldNames:     fieldNames,
+		Classification: classification,
+		Message:        message,
+	})
+	return errors
+}
+
+var asyncRequest bool
+var payments chan Payment
+var running bool
+var waitGroup sync.WaitGroup
+
+func processPayment(db *sql.DB, paymentBatch []Payment) {
+	log.Printf("Starting batch processing of %d payments", len(paymentBatch))
+
+	defer waitGroup.Done()
+
+	transaction, err := db.Begin()
+	if nil != err {
+		log.Print("Error creating transaction")
+		log.Print(err)
+	}
+
+	defer transaction.Rollback()
+	statement, err := transaction.Prepare(ADD_PAYMENT_QUERY)
+	if nil != err {
+		log.Print("Error preparing SQL statement")
+		log.Print(err)
+	}
+
+	defer statement.Close()
+
+	counter := 0
+	for _, payment := range paymentBatch {
+		_, err = addPayment(db, payment, statement)
+		if nil != err {
+			log.Printf("Error processing payment %#v", payment)
+			log.Print(err)
+			continue
+		}
+
+		counter++
+	}
+
+	err = transaction.Commit()
+	if nil != err {
+		log.Print("Error committing transaction")
+		log.Print(err)
+	} else {
+		log.Printf("Processed %d payments", counter)
+	}
+}
+
+func batchAddPayment(db *sql.DB, asyncProcessInterval time.Duration, dbMaxOpenConns int) {
+	log.Print("Started batch writing thread")
+
+	defer waitGroup.Done()
+
+	for running {
+		time.Sleep(asyncProcessInterval * time.Second)
+
+		var elements []Payment
+		processing := true
+		for processing {
+			select {
+			case payment, ok := <-payments:
+				if ok {
+					elements = append(elements, payment)
+					break
+				} else {
+					log.Print("Select channel closed")
+					processing = false
+					running = false
+					break
+				}
+			default:
+				processing = false
+				break
+			}
+		}
+
+		if len(elements) <= 0 {
+			continue
+		}
+
+		log.Printf("Retrieved %d payments.  Processing with %d connections", len(elements), dbMaxOpenConns)
+
+		sliceSize := int(math.Floor(float64(len(elements) / dbMaxOpenConns)))
+		remainder := len(elements) % dbMaxOpenConns
+		start := 0
+		end := 0
+
+		for iter := 0; iter < dbMaxOpenConns; iter++ {
+			var leftover int
+			if remainder > 0 {
+				leftover = 1
+				remainder--
+			} else {
+				leftover = 0
+			}
+
+			end += sliceSize + leftover
+
+			if start == end {
+				break
+			}
+
+			waitGroup.Add(1)
+			go processPayment(db, elements[start:end])
+
+			start = end
+		}
+	}
+}
+
+func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (int64, error) {
+	var lastInsertId int64
+	var err error
+	if nil == statement {
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.ProjectId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
+	} else {
+		err = statement.QueryRow(payment.Id, payment.ProjectId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
+	}
+
+	if nil == err {
+		log.Printf("New payment id = %d", lastInsertId)
+	}
+
+	return lastInsertId, err
+}
+
+var db *sql.DB
+
+func getProjectHandler(res http.ResponseWriter, req *http.Request) (int, string) {
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	req.Close = true
+
+	var project common.Project
+	var response Response
+	projectName := req.URL.Query().Get("name")
+
+	err := db.QueryRow(GET_PROJECT_QUERY, projectName).Scan(&project.Id, &project.Name, &project.Description, &project.Goal, &project.NumRaised, &project.NumBackers, &project.StartDate, &project.EndDate, &project.ShipDate)
+
+	if sql.ErrNoRows == err {
+		responseStr := fmt.Sprintf("%s not found", projectName)
+		response = Response{Code: http.StatusNotFound, Message: responseStr}
+		log.Print(responseStr)
+	} else if nil != err {
+		responseStr := "Could not get project due to server error"
+		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+		log.Print(err)
+	} else {
+		jsonStr, _ := json.Marshal(project)
+		return http.StatusOK, string(jsonStr)
+	}
+
+	jsonStr, _ := json.Marshal(response)
+	return response.Code, string(jsonStr)
+}
+
+func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	req.Close = true
+
+	var response Response
+	projectName := req.URL.Query().Get("project_name")
+
+	rows, err := db.Query(GET_PERKS_QUERY, projectName)
+	defer rows.Close()
+
+	if nil != err {
+		responseStr := "Could not get perks due to server error"
+		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+		log.Print(err)
+	} else {
+		var perks []common.Perk
+		for rows.Next() {
+			var perk common.Perk
+			err = rows.Scan(&perk.Id, &perk.ProjectId, &perk.ProjectName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.NumClaimed)
+			if nil == err {
+				perks = append(perks, perk)
+			} else {
+				responseStr := "Could not get perks due to server error"
+				response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+				log.Print(err)
+			}
+		}
+
+		err = rows.Err()
+		if nil != err {
+			log.Print(err)
+		}
+
+		if len(perks) > 0 {
+			jsonStr, _ := json.Marshal(perks)
+			return http.StatusOK, string(jsonStr)
+		} else {
+			responseStr := fmt.Sprintf("%s not found", projectName)
+			response = Response{Code: http.StatusNotFound, Message: responseStr}
+			log.Print(responseStr)
+		}
+	}
+
+	jsonStr, _ := json.Marshal(response)
+	return response.Code, string(jsonStr)
+}
+
+func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string) {
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	req.Close = true
+
+	var payment Payment
+	var response Response
+	id := req.URL.Query().Get("id")
+
+	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.ProjectId, &payment.PerkId, &payment.State)
+
+	if sql.ErrNoRows == err {
+		return http.StatusNotFound, "{'status': 'not found'}"
+	} else if nil != err {
+		responseStr := "Could not get payment due to server error"
+		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+		log.Print(err)
+	} else {
+		jsonStr, _ := json.Marshal(payment)
+		return http.StatusOK, string(jsonStr)
+	}
+
+	jsonStr, _ := json.Marshal(response)
+	return response.Code, string(jsonStr)
+}
+
+func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Payment) (int, string) {
+	id := uuid.NewV4()
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	res.Header().Set(LOCATION_HEADER, fmt.Sprintf("%s?id=%s", PAYMENTS_URL, id))
+
+	log.Printf("Received new payment: %#v", payment)
+
+	req.Close = true
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	var response Response
+
+	if asyncRequest && running {
+		payments <- payment
+		responseStr := "Successfully added payment"
+		response = Response{Code: http.StatusAccepted, Message: responseStr}
+		log.Print(responseStr)
+	} else if asyncRequest && !running {
+		responseStr := "Could not add payment due to server maintenance"
+		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr}
+		log.Print(responseStr)
+	} else {
+		id, err := addPayment(db, payment, nil)
+		if nil != err {
+			responseStr := "Could not add payment due to server error"
+			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			log.Print(responseStr)
+			log.Print(err)
+			log.Printf("%d database connections opened", db.Stats().OpenConnections)
+		} else {
+			responseStr := "Successfully added payment"
+			response = Response{Code: http.StatusCreated, Message: responseStr, Id: id}
+			log.Print(responseStr)
+		}
+	}
+
+	jsonStr, _ := json.Marshal(response)
+	return response.Code, string(jsonStr)
+}
+
+func errorHandler(errors binding.Errors, res http.ResponseWriter) {
+	if len(errors) > 0 {
+		var fieldsMsg string
+
+		for _, err := range errors {
+			for _, field := range err.Fields() {
+				fieldsMsg += fmt.Sprintf("%s, ", field)
+			}
+
+			log.Printf("Error received. Message: %s, Kind: %s", err.Error(), err.Kind())
+		}
+
+		fieldsMsg = strings.TrimSuffix(fieldsMsg, ", ")
+
+		log.Printf("Error received. Fields: %s", fieldsMsg)
+
+		res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+		var response Response
+
+		if errors.Has(binding.RequiredError) {
+			res.WriteHeader(http.StatusBadRequest)
+			responseStr := fmt.Sprintf("Missing required field(s): %s", fieldsMsg)
+			response = Response{Code: http.StatusBadRequest, Message: responseStr}
+		} else if errors.Has(binding.ContentTypeError) {
+			res.WriteHeader(http.StatusUnsupportedMediaType)
+			response = Response{Code: http.StatusUnsupportedMediaType, Message: "Invalid content type"}
+		} else if errors.Has(binding.DeserializationError) {
+			res.WriteHeader(http.StatusBadRequest)
+			response = Response{Code: http.StatusBadRequest, Message: "Deserialization error"}
+		} else if errors.Has(binding.TypeError) {
+			res.WriteHeader(http.StatusBadRequest)
+			response = Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
+		} else if errors.Has(BOT_ERROR) {
+			if botDetection.PlayCoy && !asyncRequest {
+				res.WriteHeader(http.StatusCreated)
+				//response = Response{Code: http.StatusCreated, Message: "Successfully added payment", Id: getNextId(db)}
+				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
+			} else if botDetection.PlayCoy && asyncRequest {
+				res.WriteHeader(http.StatusAccepted)
+				response = Response{Code: http.StatusAccepted, Message: "Successfully added payment"}
+				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
+			} else {
+				res.WriteHeader(http.StatusBadRequest)
+				response = Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
+				log.Printf("Robot detected: %s. Rejecting message.", errors[0].Error())
+			}
+		} else {
+			res.WriteHeader(http.StatusBadRequest)
+			response = Response{Code: http.StatusBadRequest, Message: "Unknown error"}
+		}
+
+		log.Print(response.Message)
+		jsonStr, _ := json.Marshal(response)
+		res.Write(jsonStr)
+	}
+}
+
+func notFoundHandler(res http.ResponseWriter, req *http.Request) (int, string) {
+	req.Close = true
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	responseStr := fmt.Sprintf("URL Not Found %s", req.URL)
+	response := Response{Code: http.StatusNotFound, Message: responseStr}
+	log.Print(responseStr)
+	jsonStr, _ := json.Marshal(response)
+	return response.Code, string(jsonStr)
+}
+
+func runHttpServer() {
+	martini_ := martini.Classic()
+
+	allowHeaders := []string{ORIGIN_HEADER}
+	if botDetection.FieldLocation == Header {
+		allowHeaders = append(allowHeaders, botDetection.FieldName)
+	}
+
+	//Allowable header names
+	headerNamesStr := os.Getenv("ALLOW_HEADERS")
+	if len(headerNamesStr) > 0 {
+		headerNamesArr := strings.Split(headerNamesStr, ",")
+		for _, headerName := range headerNamesArr {
+			allowHeaders = append(allowHeaders, headerName)
+		}
+	}
+
+	log.Printf("Allowable header names: %s", allowHeaders)
+
+	martini_.Use(cors.Allow(&cors.Options{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{GET_METHOD, POST_METHOD},
+		AllowHeaders:     allowHeaders,
+		AllowCredentials: true,
+	}))
+
+	sslRedirect, err := strconv.ParseBool(common.GetenvWithDefault("SSL_REDIRECT", "false"))
+	if nil != err {
+		sslRedirect = false
+		log.Print(err)
+	}
+	log.Printf("Setting SSL redirect to %t", sslRedirect)
+
+	martini_.Use(secure.Secure(secure.Options{
+		SSLRedirect: sslRedirect,
+	}))
+
+	//Backers information
+	martini_.Get(PROJECT_URL, getProjectHandler, errorHandler)
+	martini_.Head(PROJECT_URL, getProjectHandler, errorHandler)
+
+	//Perks information
+	martini_.Get(PERKS_URL, getPerkHandler, errorHandler)
+	martini_.Head(PERKS_URL, getPerkHandler, errorHandler)
+
+	//Payments information
+	martini_.Get(PAYMENTS_URL, getPaymentHandler, errorHandler)
+	martini_.Head(PAYMENTS_URL, getPaymentHandler, errorHandler)
+
+	//Accept payments
+	martini_.Post(PAYMENTS_URL, binding.Form(Payment{}), errorHandler, makePaymentHandler)
+
+	martini_.NotFound(notFoundHandler)
+	martini_.Run()
+}
+
+func main() {
+	dbUrl := os.Getenv("DATABASE_URL")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbHost := common.GetenvWithDefault("DB_HOST", "localhost")
+	dbPort := common.GetenvWithDefault("DB_PORT", "5432")
+	dbMaxOpenConnsStr := common.GetenvWithDefault("DB_MAX_OPEN_CONNS", "10")
+	dbMaxIdleConnsStr := common.GetenvWithDefault("DB_MAX_IDLE_CONNS", "0")
+
+	var err error
+
+	dbMaxOpenConns, err := strconv.Atoi(dbMaxOpenConnsStr)
+	if nil != err {
+		dbMaxOpenConns = 10
+		log.Printf("Error setting database maximum open connections from value: %s. Default to %d", dbMaxOpenConnsStr, dbMaxOpenConns)
+		log.Print(err)
+	}
+
+	dbMaxIdleConns, err := strconv.Atoi(dbMaxIdleConnsStr)
+	if nil != err {
+		dbMaxIdleConns = 0
+		log.Printf("Error setting database maximum idle connections from value: %s. Default to %d", dbMaxIdleConnsStr, dbMaxIdleConns)
+		log.Print(err)
+	}
+
+	dbCredentials := common.DatabaseCredentials{common.DB_DRIVER, dbUrl, dbUser, dbPassword, dbName, dbHost, dbPort, dbMaxOpenConns, dbMaxIdleConns}
+	if !dbCredentials.IsValid() {
+		log.Fatalf("Database credentials NOT set correctly. %#v", dbCredentials)
+	}
+
+	//Database connection
+	log.Print("Enabling database connectivity")
+
+	db = dbCredentials.GetDatabase()
+	defer db.Close()
+
+	//Get configurable string size limits
+	stringSizeLimitStr := common.GetenvWithDefault("STRING_SIZE_LIMIT", "500")
+	stringSizeLimit, err = strconv.Atoi(stringSizeLimitStr)
+	if nil != err {
+		stringSizeLimit = 500
+		log.Printf("Error setting string size limit from value: %s. Default to %d", stringSizeLimitStr, stringSizeLimit)
+		log.Print(err)
+	}
+
+	//E-mail regular expression
+	log.Print("Compiling e-mail regular expression")
+	emailRegex, err = regexp.Compile(EMAIL_REGEX)
+	if nil != err {
+		log.Print(err)
+		log.Fatalf("E-mail regex compilation failed for %s", EMAIL_REGEX)
+	}
+
+	//Robot detection field
+	botDetectionFieldLocationStr := common.GetenvWithDefault("BOTDETECT_FIELDLOCATION", "body")
+	botDetectionFieldName := common.GetenvWithDefault("BOTDETECT_FIELDNAME", "spambot")
+	botDetectionFieldValue := common.GetenvWithDefault("BOTDETECT_FIELDVALUE", "")
+	botDetectionMustMatchStr := common.GetenvWithDefault("BOTDETECT_MUSTMATCH", "true")
+	botDetectionPlayCoyStr := common.GetenvWithDefault("BOTDETECT_PLAYCOY", "true")
+
+	var botDetectionFieldLocation RequestLocation
+
+	switch botDetectionFieldLocationStr {
+	case "header":
+		botDetectionFieldLocation = Header
+		break
+	case "body":
+		botDetectionFieldLocation = Body
+		break
+	default:
+		botDetectionFieldLocation = Body
+		log.Printf("Error with int input for field %s with value %s.  Defaulting to Body.", "BOTDETECT_FIELDLOCATION", botDetectionFieldLocationStr)
+		break
+	}
+
+	botDetectionMustMatch, err := strconv.ParseBool(botDetectionMustMatchStr)
+	if nil != err {
+		botDetectionMustMatch = true
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to true.", "BOTDETECT_MUSTMATCH", botDetectionMustMatchStr)
+		log.Print(err)
+	}
+
+	botDetectionPlayCoy, err := strconv.ParseBool(botDetectionPlayCoyStr)
+	if nil != err {
+		botDetectionPlayCoy = true
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to true.", "BOTDETECT_PLAYCOY", botDetectionPlayCoyStr)
+		log.Print(err)
+	}
+
+	botDetection = BotDetection{botDetectionFieldLocation, botDetectionFieldName, botDetectionFieldValue, botDetectionMustMatch, botDetectionPlayCoy}
+
+	log.Printf("Creating robot detection with %#v", botDetection)
+
+	//Asynchronous database writes
+	asyncRequest, err = strconv.ParseBool(common.GetenvWithDefault("ASYNC_REQUEST", "false"))
+	if nil != err {
+		asyncRequest = false
+		running = false
+		log.Printf("Error converting input for field ASYNC_REQUEST. Defaulting to false.")
+		log.Print(err)
+	}
+
+	asyncRequestSizeStr := common.GetenvWithDefault("ASYNC_REQUEST_SIZE", "100000")
+	asyncRequestSize, err := strconv.Atoi(asyncRequestSizeStr)
+	if nil != err {
+		asyncRequestSize = 100000
+		log.Printf("Error converting input for field ASYNC_REQUEST_SIZE. Defaulting to 100000.")
+		log.Print(err)
+	}
+
+	asyncProcessIntervalStr := common.GetenvWithDefault("ASYNC_PROCESS_INTERVAL", "5")
+	asyncProcessInterval, err := strconv.Atoi(asyncProcessIntervalStr)
+	if nil != err {
+		asyncProcessInterval = 5
+		log.Printf("Error converting input for field ASYNC_PROCESS_INTERVAL. Defaulting to 5.")
+		log.Print(err)
+	}
+
+	if asyncRequest {
+		waitGroup.Add(1)
+		running = true
+		payments = make(chan Payment, asyncRequestSize)
+		go batchAddPayment(db, time.Duration(asyncProcessInterval), dbMaxOpenConns)
+		log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
+		log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
+	}
+
+	//Signal handler
+	signals := make(chan os.Signal)
+	signal.Notify(signals, os.Interrupt)
+	signal.Notify(signals, syscall.SIGTERM)
+	go func() {
+		<-signals
+		log.Print("Shutting down...")
+		running = false
+		waitGroup.Wait()
+		os.Exit(0)
+	}()
+
+	//HTTP server
+	host := common.GetenvWithDefault("HOST", "")
+	port := common.GetenvWithDefault("PORT", "3000")
+	mode := common.GetenvWithDefault("MARTINI_ENV", "development")
+
+	log.Printf("Running HTTP server on %s:%s in mode %s", host, port, mode)
+	runHttpServer()
+}
