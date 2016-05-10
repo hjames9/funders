@@ -25,3 +25,7 @@ _testmain.go
 *.test
 *.prof
 *.swp
+funders
+fundersctl
+cmd/funders/funders
+cmd/fundersctl/fundersctl
