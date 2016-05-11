@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	ADD_PROJECT_QUERY = "INSERT INTO funders.projects (name, description, goal, start_date, end_date, ship_date, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8)"
-	ADD_PERK_QUERY    = "INSERT INTO funders.perks (project_id, name, description, price, available, created_at, updated_at) VALUES((SELECT id FROM funders.projects WHERE name = $1), $2, $3, $4, $5, $6, $7)"
-	RM_PROJECT_QUERY  = "DELETE FROM funders.projects WHERE name = $1"
-	RM_PERK_QUERY     = "DELETE FROM funders.perks WHERE id = $1 AND project_id IN (SELECT id FROM funders.projects WHERE name = $2)"
-	TIME_LAYOUT       = "2006-01-02"
+	ADD_CAMPAIGN_QUERY = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, ship_date, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8)"
+	ADD_PERK_QUERY     = "INSERT INTO funders.perks (campaign_id, name, description, price, available, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7)"
+	RM_CAMPAIGN_QUERY  = "DELETE FROM funders.campaigns WHERE name = $1"
+	RM_PERK_QUERY      = "DELETE FROM funders.perks WHERE id = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
+	TIME_LAYOUT        = "2006-01-02"
 )
 
-func getProjectFromCommandLine() (common.Project, error) {
+func getCampaignFromCommandLine() (common.Campaign, error) {
 	var (
-		project      common.Project
+		campaign     common.Campaign
 		err          error
 		goalStr      string
 		startDateStr string
@@ -34,31 +34,31 @@ func getProjectFromCommandLine() (common.Project, error) {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Enter project name (single word): ")
-	project.Name, err = reader.ReadString('\n')
-	project.Name = strings.TrimSpace(project.Name)
+	fmt.Print("Enter campaign name (single word): ")
+	campaign.Name, err = reader.ReadString('\n')
+	campaign.Name = strings.TrimSpace(campaign.Name)
 
-	fmt.Print("Enter project description: ")
-	project.Description, err = reader.ReadString('\n')
-	project.Description = strings.TrimSpace(project.Description)
+	fmt.Print("Enter campaign description: ")
+	campaign.Description, err = reader.ReadString('\n')
+	campaign.Description = strings.TrimSpace(campaign.Description)
 
-	fmt.Print("Enter project goal (numeric value): ")
+	fmt.Print("Enter campaign goal (numeric value): ")
 	goalStr, err = reader.ReadString('\n')
-	project.Goal, err = strconv.ParseFloat(strings.TrimSpace(goalStr), 64)
+	campaign.Goal, err = strconv.ParseFloat(strings.TrimSpace(goalStr), 64)
 
-	fmt.Print("Enter project start date (e.g. 2016-09-04): ")
+	fmt.Print("Enter campaign start date (e.g. 2016-09-04): ")
 	startDateStr, err = reader.ReadString('\n')
-	project.StartDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(startDateStr))
+	campaign.StartDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(startDateStr))
 
-	fmt.Print("Enter project end date (e.g. 2016-09-04): ")
+	fmt.Print("Enter campaign end date (e.g. 2016-09-04): ")
 	endDateStr, err = reader.ReadString('\n')
-	project.EndDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(endDateStr))
+	campaign.EndDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(endDateStr))
 
-	fmt.Print("Enter project ship date (e.g. 2016-09-04): ")
+	fmt.Print("Enter campaign ship date (e.g. 2016-09-04): ")
 	shipDateStr, err = reader.ReadString('\n')
-	project.ShipDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(shipDateStr))
+	campaign.ShipDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(shipDateStr))
 
-	return project, err
+	return campaign, err
 }
 
 func getPerkFromCommandLine() (common.Perk, error) {
@@ -71,9 +71,9 @@ func getPerkFromCommandLine() (common.Perk, error) {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Enter project name (single word): ")
-	perk.ProjectName, err = reader.ReadString('\n')
-	perk.ProjectName = strings.TrimSpace(perk.ProjectName)
+	fmt.Print("Enter campaign name (single word): ")
+	perk.CampaignName, err = reader.ReadString('\n')
+	perk.CampaignName = strings.TrimSpace(perk.CampaignName)
 
 	fmt.Print("Enter perk name: ")
 	perk.Name, err = reader.ReadString('\n')
@@ -94,12 +94,12 @@ func getPerkFromCommandLine() (common.Perk, error) {
 	return perk, err
 }
 
-func addProjectToDatabase(db *sql.DB, project *common.Project) error {
-	return db.QueryRow(ADD_PROJECT_QUERY, project.Name, project.Description, project.Goal, project.StartDate, project.EndDate, project.ShipDate, time.Now(), time.Now()).Scan(&project.Id)
+func addCampaignToDatabase(db *sql.DB, campaign *common.Campaign) error {
+	return db.QueryRow(ADD_CAMPAIGN_QUERY, campaign.Name, campaign.Description, campaign.Goal, campaign.StartDate, campaign.EndDate, campaign.ShipDate, time.Now(), time.Now()).Scan(&campaign.Id)
 }
 
 func addPerkToDatabase(db *sql.DB, perk *common.Perk) error {
-	return db.QueryRow(ADD_PERK_QUERY, perk.ProjectName, perk.Name, perk.Description, perk.Price, perk.Available, time.Now(), time.Now()).Scan(&perk.Id)
+	return db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Available, time.Now(), time.Now()).Scan(&perk.Id)
 }
 
 func main() {
@@ -139,17 +139,17 @@ func main() {
 	db := dbCredentials.GetDatabase()
 	defer db.Close()
 	/*
-	   	var projectFlag = flag.Bool("-add_project", false, "Description of flag")
+	   	var campaignFlag = flag.Bool("-add_campaign", false, "Description of flag")
 	   	var perkFlag = flag.Bool("-add_perk", false, "Description of flag")
 	   	flag.Parse()
 
-	   	if *projectFlag {
-	   		log.Print("Add project")
-	   		project, err := getProjectFromCommandLine()
+	   	if *campaignFlag {
+	   		log.Print("Add campaign")
+	   		campaign, err := getCampaignFromCommandLine()
 	           if nil != err {
 	               log.Fatal(err)
 	           } else {
-	               addProjectToDatabase(db, &project)
+	               addCampaignToDatabase(db, &campaign)
 	           }
 	   	} else if *perkFlag {
 	   		log.Print("Add perk")
@@ -172,11 +172,11 @@ func main() {
 	               }
 	           }
 	*/
-	project, err := getProjectFromCommandLine()
+	campaign, err := getCampaignFromCommandLine()
 	if nil != err {
 		log.Fatal(err)
 	} else {
-		err = addProjectToDatabase(db, &project)
+		err = addCampaignToDatabase(db, &campaign)
 		if nil != err {
 			log.Fatal(err)
 		}

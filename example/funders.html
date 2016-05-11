@@ -6,11 +6,30 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Funders test page</title>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
     <link type="text/css" rel="stylesheet" href="funders.css"/>
+    <script type="text/javascript" src="//code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script type="text/javascript" src="//code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
     <script type="text/javascript" src="../js/funders.js"></script>
 </head>
 
 <body>
+    <div>
+        <div id="backers">
+            <p>100</p>
+            <p>backers</p>
+        </div>
+        <div id="total">
+            <p>$65000</p>
+            <p>of <span>$1000000</span></p>
+        </div>
+        <div id="time">
+            <p>35</p>
+            <p>days left</p>
+        </div>
+        <div id="progressbar"></div>
+    </div>
+
     <form id="paymentForm" action="http://localhost:3000/payments" method="POST">
         <div id="paymentType">
             <label>Payment Type</label>
@@ -34,6 +53,10 @@
     </form>
 
     <!--<script type="text/javascript" src="main.js"></script>-->
+    <script type="text/javascript">
+        var progressBar = $("#progressbar");
+        progressBar.progressbar({max: 1000000, value: 654000});
+    </script>
 </body>
 
 </html>

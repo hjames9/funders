@@ -2,14 +2,14 @@
  * var funder = new Funder();
  *
  * funder.setUrl("https://host:port/<optional path>"); //Required
- * funder.setProjectsPath("/projects"); //Optional, default: "/projects"
+ * funder.setCampaignsPath("/campaigns"); //Optional, default: "/campaigns"
  * funder.setPerksPath("/perks"); //Optional, default: "/perks"
  * funder.setPaymentsPath("/payments"); //Optional, default: "/payments"
  *
- * funder.getProject(params); //Synchronous
- * funder.getProject(params, //Asynchronous
- *      function(response, status, project) {}, //Success
- *      function(response, status, project) {}  //Error
+ * funder.getCampaign(params); //Synchronous
+ * funder.getCampaign(params, //Asynchronous
+ *      function(response, status, campaign) {}, //Success
+ *      function(response, status, campaign) {}  //Error
  * );
  *
  * funder.getPerks(params); //Synchronous
@@ -102,12 +102,12 @@ Funder.prototype.getUrl = function() {
     return this.url;
 }
 
-Funder.prototype.setProjectsPath = function(projectsPath) {
-    this.projectsPath = projectsPath;
+Funder.prototype.setCampaignsPath = function(campaignsPath) {
+    this.campaignsPath = campaignsPath;
 };
 
-Funder.prototype.getProjectsPath = function() {
-    return this.projectsPath;
+Funder.prototype.getCampaignsPath = function() {
+    return this.campaignsPath;
 };
 
 Funder.prototype.setPerksPath = function(perksPath) {
@@ -126,8 +126,8 @@ Funder.prototype.getPaymentsPath = function() {
     return this.paymentsPath;
 };
 
-Funder.prototype.getProject = function(params, successFunc, errorFunc) {
-    return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getProjectsPath(), "GET");
+Funder.prototype.getCampaign = function(params, successFunc, errorFunc) {
+    return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getCampaignsPath(), "GET");
 };
 
 Funder.prototype.getPerks = function(params, successFunc, errorFunc) {

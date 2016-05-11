@@ -1,17 +1,17 @@
 -- Projects
 
-INSERT INTO funders.projects VALUES (DEFAULT, 'alpha', 'Alpha is the best consumer electronics product ever', 100000.50, '2016-09-01', '2016-11-01', '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.projects VALUES (DEFAULT, 'omega', 'Omega is the worst consumer electronics product ever', 50000, '2017-08-01', '2017-10-01', '2018-08-01', DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.projects VALUES (DEFAULT, 'kappa', 'Kappa is an alright consumer electronics product', 75000, '2016-07-01', '2016-09-01', '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.campaigns VALUES (DEFAULT, 'alpha', 'Alpha is the best consumer electronics product ever', 100000.50, '2016-09-01', '2016-11-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.campaigns VALUES (DEFAULT, 'omega', 'Omega is the worst consumer electronics product ever', 50000, '2017-08-01', '2017-10-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.campaigns VALUES (DEFAULT, 'kappa', 'Kappa is an alright consumer electronics product', 75000, '2016-07-01', '2016-09-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
 
 -- Perks
 
-INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Alpha t-shirt', 'A black Alpha t-shirt', 25, 1000, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Green Alpha', 'A green version of Alpha', 500, 3000, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.perks VALUES (DEFAULT, 31339, 'Omega t-shirt', 'A black Omega t-shirt', 25, 1000, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.perks VALUES (DEFAULT, 31339, 'Purple Omega', 'A purple version of Omega', 500, 3000, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.perks VALUES (DEFAULT, 31341, 'Kappa t-shirt', 'A black Kappa t-shirt', 25, 1000, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.perks VALUES (DEFAULT, 31341, 'Gold Kappa', 'A gold version of Kappa', 500, 3000, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Alpha t-shirt', 'A black Alpha t-shirt', 25, 1000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Green Alpha', 'A green version of Alpha', 500, 3000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31339, 'Omega t-shirt', 'A black Omega t-shirt', 25, 1000, '2018-08-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31339, 'Purple Omega', 'A purple version of Omega', 500, 3000, '2018-08-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31341, 'Kappa t-shirt', 'A black Kappa t-shirt', 25, 1000, '2017-07-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31341, 'Gold Kappa', 'A gold version of Kappa', 500, 3000, '2017-07-01', DEFAULT, current_timestamp, current_timestamp);
 
 -- Payments
 

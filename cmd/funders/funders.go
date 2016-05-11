@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	GET_PROJECTS_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.project_backers"
-	GET_PROJECT_QUERY   = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.project_backers WHERE name = $1"
-	GET_PERKS_QUERY     = "SELECT id, project_id, project_name, name, description, price, available, num_claimed FROM funders.perk_claims WHERE project_name = $1"
-	GET_PAYMENT_QUERY   = "SELECT id, project_id, perk_id, state FROM funders.payments WHERE id = $1"
-	ADD_PAYMENT_QUERY   = "INSERT INTO funders.payments(id, project_id, perk_id, payment_type, amount, state, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;"
+	GET_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.campaign_backers"
+	GET_CAMPAIGN_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.campaign_backers WHERE name = $1"
+	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, available, num_claimed FROM funders.perk_claims WHERE campaign_name = $1"
+	GET_PAYMENT_QUERY   = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE id = $1"
+	ADD_PAYMENT_QUERY   = "INSERT INTO funders.payments(id, campaign_id, perk_id, payment_type, amount, state, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;"
 	EMAIL_REGEX         = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
-	PROJECT_URL         = "/projects"
+	CAMPAIGN_URL        = "/campaigns"
 	PERKS_URL           = "/perks"
 	PAYMENTS_URL        = "/payments"
 	USER_AGENT_HEADER   = "User-Agent"
@@ -46,7 +46,7 @@ const (
 
 type Payment struct {
 	Id          string
-	ProjectId   int64   `form:"projectid" binding:"required"`
+	CampaignId  int64   `form:"campaignid" binding:"required"`
 	PerkId      int64   `form:"perkid" binding:"required"`
 	PaymentType string  `form:"paymenttype" binding:"required" json:"-"`
 	Amount      float64 `form:"amount" binding:"required" json:"-"`
@@ -240,9 +240,9 @@ func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (int64, error)
 	var lastInsertId int64
 	var err error
 	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.ProjectId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
 	} else {
-		err = statement.QueryRow(payment.Id, payment.ProjectId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
 	}
 
 	if nil == err {
@@ -254,26 +254,26 @@ func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (int64, error)
 
 var db *sql.DB
 
-func getProjectHandler(res http.ResponseWriter, req *http.Request) (int, string) {
+func getCampaignHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	req.Close = true
 
-	var project common.Project
+	var campaign common.Campaign
 	var response Response
-	projectName := req.URL.Query().Get("name")
+	campaignName := req.URL.Query().Get("name")
 
-	err := db.QueryRow(GET_PROJECT_QUERY, projectName).Scan(&project.Id, &project.Name, &project.Description, &project.Goal, &project.NumRaised, &project.NumBackers, &project.StartDate, &project.EndDate, &project.ShipDate)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, campaignName).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.ShipDate)
 
 	if sql.ErrNoRows == err {
-		responseStr := fmt.Sprintf("%s not found", projectName)
+		responseStr := fmt.Sprintf("%s not found", campaignName)
 		response = Response{Code: http.StatusNotFound, Message: responseStr}
 		log.Print(responseStr)
 	} else if nil != err {
-		responseStr := "Could not get project due to server error"
+		responseStr := "Could not get campaign due to server error"
 		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
 		log.Print(err)
 	} else {
-		jsonStr, _ := json.Marshal(project)
+		jsonStr, _ := json.Marshal(campaign)
 		return http.StatusOK, string(jsonStr)
 	}
 
@@ -286,9 +286,9 @@ func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 	req.Close = true
 
 	var response Response
-	projectName := req.URL.Query().Get("project_name")
+	campaignName := req.URL.Query().Get("campaign_name")
 
-	rows, err := db.Query(GET_PERKS_QUERY, projectName)
+	rows, err := db.Query(GET_PERKS_QUERY, campaignName)
 	defer rows.Close()
 
 	if nil != err {
@@ -299,7 +299,7 @@ func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 		var perks []common.Perk
 		for rows.Next() {
 			var perk common.Perk
-			err = rows.Scan(&perk.Id, &perk.ProjectId, &perk.ProjectName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.NumClaimed)
+			err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.NumClaimed)
 			if nil == err {
 				perks = append(perks, perk)
 			} else {
@@ -318,7 +318,7 @@ func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 			jsonStr, _ := json.Marshal(perks)
 			return http.StatusOK, string(jsonStr)
 		} else {
-			responseStr := fmt.Sprintf("%s not found", projectName)
+			responseStr := fmt.Sprintf("%s not found", campaignName)
 			response = Response{Code: http.StatusNotFound, Message: responseStr}
 			log.Print(responseStr)
 		}
@@ -336,7 +336,7 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 	var response Response
 	id := req.URL.Query().Get("id")
 
-	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.ProjectId, &payment.PerkId, &payment.State)
+	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.State)
 
 	if sql.ErrNoRows == err {
 		return http.StatusNotFound, "{'status': 'not found'}"
@@ -497,8 +497,8 @@ func runHttpServer() {
 	}))
 
 	//Backers information
-	martini_.Get(PROJECT_URL, getProjectHandler, errorHandler)
-	martini_.Head(PROJECT_URL, getProjectHandler, errorHandler)
+	martini_.Get(CAMPAIGN_URL, getCampaignHandler, errorHandler)
+	martini_.Head(CAMPAIGN_URL, getCampaignHandler, errorHandler)
 
 	//Perks information
 	martini_.Get(PERKS_URL, getPerkHandler, errorHandler)

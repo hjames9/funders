@@ -15,7 +15,7 @@ const (
 	DB_DRIVER = "postgres"
 )
 
-type Project struct {
+type Campaign struct {
 	Id          int64
 	Name        string
 	Description string
@@ -28,14 +28,14 @@ type Project struct {
 }
 
 type Perk struct {
-	Id          int64
-	ProjectId   int64
-	ProjectName string
-	Name        string
-	Description string
-	Price       float64
-	Available   int64
-	NumClaimed  int64
+	Id           int64
+	CampaignId   int64
+	CampaignName string
+	Name         string
+	Description  string
+	Price        float64
+	Available    int64
+	NumClaimed   int64
 }
 
 func AESEncrypt(key, text []byte) ([]byte, error) {
