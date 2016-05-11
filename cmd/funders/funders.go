@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	GET_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.campaign_backers"
-	GET_CAMPAIGN_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, ship_date FROM funders.campaign_backers WHERE name = $1"
-	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, available, num_claimed FROM funders.perk_claims WHERE campaign_name = $1"
+	GET_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date FROM funders.campaign_backers"
+	GET_CAMPAIGN_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date FROM funders.campaign_backers WHERE name = $1"
+	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, available, ship_date, num_claimed FROM funders.perk_claims WHERE campaign_name = $1"
 	GET_PAYMENT_QUERY   = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE id = $1"
 	ADD_PAYMENT_QUERY   = "INSERT INTO funders.payments(id, campaign_id, perk_id, payment_type, amount, state, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;"
 	EMAIL_REGEX         = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
@@ -262,7 +262,7 @@ func getCampaignHandler(res http.ResponseWriter, req *http.Request) (int, string
 	var response Response
 	campaignName := req.URL.Query().Get("name")
 
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, campaignName).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.ShipDate)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, campaignName).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate)
 
 	if sql.ErrNoRows == err {
 		responseStr := fmt.Sprintf("%s not found", campaignName)
@@ -299,7 +299,7 @@ func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 		var perks []common.Perk
 		for rows.Next() {
 			var perk common.Perk
-			err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.NumClaimed)
+			err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.ShipDate, &perk.NumClaimed)
 			if nil == err {
 				perks = append(perks, perk)
 			} else {
@@ -339,7 +339,9 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.State)
 
 	if sql.ErrNoRows == err {
-		return http.StatusNotFound, "{'status': 'not found'}"
+		responseStr := fmt.Sprintf("%s not found", id)
+		response = Response{Code: http.StatusNotFound, Message: responseStr}
+		log.Print(err)
 	} else if nil != err {
 		responseStr := "Could not get payment due to server error"
 		response = Response{Code: http.StatusInternalServerError, Message: responseStr}

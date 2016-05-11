@@ -24,7 +24,6 @@ type Campaign struct {
 	NumBackers  int64
 	StartDate   time.Time
 	EndDate     time.Time
-	ShipDate    time.Time
 }
 
 type Perk struct {
@@ -35,6 +34,7 @@ type Perk struct {
 	Description  string
 	Price        float64
 	Available    int64
+	ShipDate     time.Time
 	NumClaimed   int64
 }
 
