@@ -4,7 +4,7 @@ CREATE SCHEMA IF NOT EXISTS funders;
 
 SET search_path TO funders,public;
 
-CREATE TYPE payment_type AS ENUM('credit_card', 'bank_ach', 'paypal', 'bitcoin');
+CREATE TYPE account_type AS ENUM('credit_card', 'bank_ach', 'paypal', 'bitcoin');
 
 CREATE TYPE payment_state AS ENUM('success', 'failure', 'pending');
 
@@ -49,11 +49,34 @@ CREATE TABLE payments
     id UUID NOT NULL PRIMARY KEY,
     campaign_id INT8 NOT NULL REFERENCES campaigns (id),
     perk_id INT8 NOT NULL REFERENCES perks (id),
-    payment_type PAYMENT_TYPE NOT NULL,
+    account_type ACCOUNT_TYPE NOT NULL,
+    name_on_payment VARCHAR NOT NULL,
+    bank_routing_number VARCHAR,
+    bank_account_number VARCHAR,
+    credit_card_account_number VARCHAR,
+    credit_card_expiration_date VARCHAR,
+    credit_card_cvv VARCHAR,
+    credit_card_postal_code VARCHAR,
+    paypal_email VARCHAR,
+    bitcoin_address VARCHAR,
+    full_name VARCHAR NOT NULL,
+    address1 VARCHAR NOT NULL,
+    address2 VARCHAR NULL,
+    city VARCHAR NOT NULL,
+    postal_code VARCHAR NOT NULL,
+    country VARCHAR NOT NULL,
     amount NUMERIC NOT NULL,
     state PAYMENT_STATE NOT NULL,
+    contact_email VARCHAR NULL,
+    contact_opt_in BOOLEAN NOT NULL DEFAULT(true),
+    advertise BOOLEAN NOT NULL DEFAULT(true),
+    advertise_other VARCHAR NULL,
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
+    updated_at TIMESTAMP NOT NULL,
+    CHECK (account_type = 'bank_ach' AND bank_routing_number IS NOT NULL AND bank_account_number IS NOT NULL OR account_type = 'credit_card' AND credit_card_account_number IS NOT NULL AND credit_card_expiration_date IS NOT NULL AND credit_card_cvv IS NOT NULL AND credit_card_postal_code IS NOT NULL OR account_type = 'paypal' AND paypal_email IS NOT NULL OR account_type = 'bitcoin' AND bitcoin_address IS NOT NULL),
+    CHECK (bank_account_number IS NOT NULL OR credit_card_account_number IS NOT NULL OR paypal_email IS NOT NULL OR bitcoin_address IS NOT NULL),
+    CHECK (bank_account_number IS NULL OR credit_card_account_number IS NULL OR paypal_email IS NULL OR bitcoin_address IS NULL),
+    CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$')
 );
 
 CREATE VIEW campaign_backers
