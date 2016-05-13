@@ -26,7 +26,7 @@ CREATE TABLE campaigns
 
 ALTER SEQUENCE campaigns_id_seq INCREMENT BY 2 START WITH 31337 RESTART WITH 31337;
 
-CREATE INDEX c_name_idx ON campaigns(name);
+CREATE UNIQUE INDEX c_name_idx ON campaigns(name);
 
 CREATE TABLE perks
 (
@@ -43,6 +43,8 @@ CREATE TABLE perks
 );
 
 ALTER SEQUENCE perks_id_seq INCREMENT BY 3 START WITH 31337 RESTART WITH 31337;
+
+CREATE UNIQUE INDEX p_name_idx ON perks(name, campaign_id);
 
 CREATE TABLE payments
 (

@@ -24,6 +24,7 @@ type Campaign struct {
 	NumBackers  int64
 	StartDate   time.Time
 	EndDate     time.Time
+	Flexible    bool
 }
 
 type Perk struct {

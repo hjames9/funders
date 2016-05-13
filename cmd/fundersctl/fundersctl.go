@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"database/sql"
-	_ "flag"
+	"flag"
 	"fmt"
 	"github.com/hjames9/funders"
 	_ "github.com/lib/pq"
@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	ADD_CAMPAIGN_QUERY = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, ship_date, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8)"
-	ADD_PERK_QUERY     = "INSERT INTO funders.perks (campaign_id, name, description, price, available, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7)"
+	ADD_CAMPAIGN_QUERY = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+	ADD_PERK_QUERY     = "INSERT INTO funders.perks (campaign_id, name, description, price, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8) RETURNING id"
 	RM_CAMPAIGN_QUERY  = "DELETE FROM funders.campaigns WHERE name = $1"
-	RM_PERK_QUERY      = "DELETE FROM funders.perks WHERE id = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
+	RM_PERK_QUERY      = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
 	TIME_LAYOUT        = "2006-01-02"
 )
 
@@ -29,7 +29,7 @@ func getCampaignFromCommandLine() (common.Campaign, error) {
 		goalStr      string
 		startDateStr string
 		endDateStr   string
-		shipDateStr  string
+		flexibleStr  string
 	)
 
 	reader := bufio.NewReader(os.Stdin)
@@ -54,9 +54,9 @@ func getCampaignFromCommandLine() (common.Campaign, error) {
 	endDateStr, err = reader.ReadString('\n')
 	campaign.EndDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(endDateStr))
 
-	fmt.Print("Enter campaign ship date (e.g. 2016-09-04): ")
-	shipDateStr, err = reader.ReadString('\n')
-	campaign.ShipDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(shipDateStr))
+	fmt.Print("Enter campaign flexibility (e.g. true): ")
+	flexibleStr, err = reader.ReadString('\n')
+	campaign.Flexible, err = strconv.ParseBool(strings.TrimSpace(flexibleStr))
 
 	return campaign, err
 }
@@ -67,6 +67,7 @@ func getPerkFromCommandLine() (common.Perk, error) {
 		err          error
 		priceStr     string
 		availableStr string
+		shipDateStr  string
 	)
 
 	reader := bufio.NewReader(os.Stdin)
@@ -91,15 +92,55 @@ func getPerkFromCommandLine() (common.Perk, error) {
 	availableStr, err = reader.ReadString('\n')
 	perk.Available, err = strconv.ParseInt(strings.TrimSpace(availableStr), 10, 64)
 
+	fmt.Print("Enter perk ship date (e.g. 2016-09-04): ")
+	shipDateStr, err = reader.ReadString('\n')
+	perk.ShipDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(shipDateStr))
+
 	return perk, err
 }
 
-func addCampaignToDatabase(db *sql.DB, campaign *common.Campaign) error {
-	return db.QueryRow(ADD_CAMPAIGN_QUERY, campaign.Name, campaign.Description, campaign.Goal, campaign.StartDate, campaign.EndDate, campaign.ShipDate, time.Now(), time.Now()).Scan(&campaign.Id)
+func addCampaignToDatabase(db *sql.DB, campaign *common.Campaign) (int64, error) {
+	err := db.QueryRow(ADD_CAMPAIGN_QUERY, campaign.Name, campaign.Description, campaign.Goal, campaign.StartDate, campaign.EndDate, campaign.Flexible, time.Now(), time.Now()).Scan(&campaign.Id)
+	return campaign.Id, err
 }
 
-func addPerkToDatabase(db *sql.DB, perk *common.Perk) error {
-	return db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Available, time.Now(), time.Now()).Scan(&perk.Id)
+func addPerkToDatabase(db *sql.DB, perk *common.Perk) (int64, error) {
+	err := db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Available, perk.ShipDate, time.Now(), time.Now()).Scan(&perk.Id)
+	return perk.Id, err
+}
+
+func getCampaignNameFromCommandLine() (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Enter campaign name: ")
+	campaignName, err := reader.ReadString('\n')
+	campaignName = strings.TrimSpace(campaignName)
+
+	return campaignName, err
+}
+
+func getPerkAndCampaignNameFromCommandLine() (string, string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Enter campaign name: ")
+	campaignName, err := reader.ReadString('\n')
+	campaignName = strings.TrimSpace(campaignName)
+
+	fmt.Print("Enter perk name: ")
+	perkName, err := reader.ReadString('\n')
+	perkName = strings.TrimSpace(perkName)
+
+	return campaignName, perkName, err
+}
+
+func removeCampaignFromDatabase(db *sql.DB, campaignName string) error {
+	_, err := db.Exec(RM_CAMPAIGN_QUERY, campaignName)
+	return err
+}
+
+func removePerkFromDatabase(db *sql.DB, campaignName string, perkName string) error {
+	_, err := db.Exec(RM_PERK_QUERY, perkName, campaignName)
+	return err
 }
 
 func main() {
@@ -138,47 +179,62 @@ func main() {
 
 	db := dbCredentials.GetDatabase()
 	defer db.Close()
-	/*
-	   	var campaignFlag = flag.Bool("-add_campaign", false, "Description of flag")
-	   	var perkFlag = flag.Bool("-add_perk", false, "Description of flag")
-	   	flag.Parse()
 
-	   	if *campaignFlag {
-	   		log.Print("Add campaign")
-	   		campaign, err := getCampaignFromCommandLine()
-	           if nil != err {
-	               log.Fatal(err)
-	           } else {
-	               addCampaignToDatabase(db, &campaign)
-	           }
-	   	} else if *perkFlag {
-	   		log.Print("Add perk")
-	   		perk, err := getPerkFromCommandLine()
-	           if nil != err {
-	               log.Fatal(err)
-	           } else {
-	               addPerkToDatabase(db, &perk)
-	           }
-	   	}
-	*/
-	/*
-	   		perk, err := getPerkFromCommandLine()
-	           if nil != err {
-	               log.Fatal(err)
-	           } else {
-	               err = addPerkToDatabase(db, &perk)
-	               if nil != err {
-	                   log.Fatal(err)
-	               }
-	           }
-	*/
-	campaign, err := getCampaignFromCommandLine()
-	if nil != err {
-		log.Fatal(err)
-	} else {
-		err = addCampaignToDatabase(db, &campaign)
+	addCampaignFlag := flag.Bool("add_campaign", false, "Add campaign for crowdfunding")
+	addPerkFlag := flag.Bool("add_perk", false, "Add perk for existing campaign")
+	rmCampaignFlag := flag.Bool("rm_campaign", false, "Remove campaign for crowdfunding")
+	rmPerkFlag := flag.Bool("rm_perk", false, "Remove perk for existing campaign")
+	flag.Parse()
+
+	if *addCampaignFlag {
+		log.Print("Adding campaign")
+		campaign, err := getCampaignFromCommandLine()
 		if nil != err {
 			log.Fatal(err)
+		} else {
+			id, err := addCampaignToDatabase(db, &campaign)
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				log.Printf("Id is %d", id)
+			}
 		}
+	} else if *addPerkFlag {
+		log.Print("Adding perk")
+		perk, err := getPerkFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			id, err := addPerkToDatabase(db, &perk)
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				log.Printf("Id is %d", id)
+			}
+		}
+	} else if *rmCampaignFlag {
+		log.Print("Removing campaign")
+		campaignName, err := getCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			err := removeCampaignFromDatabase(db, campaignName)
+			if nil != err {
+				log.Fatal(err)
+			}
+		}
+	} else if *rmPerkFlag {
+		log.Print("Removing perk")
+		campaignName, perkName, err := getPerkAndCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			err := removePerkFromDatabase(db, campaignName, perkName)
+			if nil != err {
+				log.Fatal(err)
+			}
+		}
+	} else {
+		flag.Usage()
 	}
 }
