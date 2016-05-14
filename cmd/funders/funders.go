@@ -25,32 +25,52 @@ import (
 )
 
 const (
-	GET_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date FROM funders.campaign_backers"
-	GET_CAMPAIGN_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date FROM funders.campaign_backers WHERE name = $1"
-	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, available, ship_date, num_claimed FROM funders.perk_claims WHERE campaign_name = $1"
-	GET_PAYMENT_QUERY   = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE id = $1"
-	ADD_PAYMENT_QUERY   = "INSERT INTO funders.payments(id, campaign_id, perk_id, payment_type, amount, state, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;"
-	EMAIL_REGEX         = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
-	CAMPAIGN_URL        = "/campaigns"
-	PERKS_URL           = "/perks"
-	PAYMENTS_URL        = "/payments"
-	USER_AGENT_HEADER   = "User-Agent"
-	CONTENT_TYPE_HEADER = "Content-Type"
-	LOCATION_HEADER     = "Location"
-	ORIGIN_HEADER       = "Origin"
-	JSON_CONTENT_TYPE   = "application/json"
-	BOT_ERROR           = "BotError"
-	GET_METHOD          = "GET"
-	POST_METHOD         = "POST"
+	GET_CAMPAIGNS_QUERY  = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = true"
+	GET_CAMPAIGN_QUERY   = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = true AND name = $1"
+	GET_PERKS_QUERY      = "SELECT id, campaign_id, campaign_name, name, description, price, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = true AND campaign_name = $1"
+	GET_PAYMENT_QUERY    = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE id = $1"
+	ADD_PAYMENT_QUERY    = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, bank_routing_number, bank_account_number, credit_card_account_number, credit_card_expiration_date, credit_card_cvv, credit_card_postal_code, paypal_email, bitcoin_address, full_name, address1, address2, city, postal_code, country, amount, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27) RETURNING id"
+	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, state = $2, bank_routing_number = NULL, bank_account_number = NULL, credit_card_account_number = NULL, credit_card_expiration_date = NULL, credit_card_cvv = NULL, credit_card_postal_code = NULL, paypal_email = NULL, bitcoin_address = NULL WHERE id = $3 AND state <> 'pending'"
+	EMAIL_REGEX          = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
+	CAMPAIGN_URL         = "/campaigns"
+	PERKS_URL            = "/perks"
+	PAYMENTS_URL         = "/payments"
+	USER_AGENT_HEADER    = "User-Agent"
+	CONTENT_TYPE_HEADER  = "Content-Type"
+	LOCATION_HEADER      = "Location"
+	ORIGIN_HEADER        = "Origin"
+	JSON_CONTENT_TYPE    = "application/json"
+	BOT_ERROR            = "BotError"
+	GET_METHOD           = "GET"
+	POST_METHOD          = "POST"
 )
 
 type Payment struct {
-	Id          string
-	CampaignId  int64   `form:"campaignid" binding:"required"`
-	PerkId      int64   `form:"perkid" binding:"required"`
-	PaymentType string  `form:"paymenttype" binding:"required" json:"-"`
-	Amount      float64 `form:"amount" binding:"required" json:"-"`
-	State       string
+	Id                       string
+	CampaignId               int64  `form:"campaignid" binding:"required"`
+	PerkId                   int64  `form:"perkid" binding:"required"`
+	AccountType              string `form:"accounttype" binding:"required" json:"-"`
+	NameOnPayment            string
+	BankRoutingNumber        string
+	BankAccountNumber        string
+	CreditCardAccountNumber  string
+	CreditCardExpirationDate string
+	CreditCardCvv            string
+	CreditCardPostalCode     string
+	PaypalEmail              string
+	BitcoinAddress           string
+	FullName                 string
+	Address1                 string
+	Address2                 string
+	City                     string
+	PostalCode               string
+	Country                  string
+	Amount                   float64 `form:"amount" binding:"required" json:"-"`
+	State                    string
+	ContactEmail             string
+	ContactOptIn             bool
+	Advertise                bool
+	AdvertiseOther           string
 }
 
 type Response struct {
@@ -107,7 +127,7 @@ var emailRegex *regexp.Regexp
 var botDetection BotDetection
 
 func (payment Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
-	errors = validateSizeLimit(payment.PaymentType, "paymenttype", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.AccountType, "accounttype", stringSizeLimit, errors)
 	return errors
 }
 
@@ -262,7 +282,7 @@ func getCampaignHandler(res http.ResponseWriter, req *http.Request) (int, string
 	var response Response
 	campaignName := req.URL.Query().Get("name")
 
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, campaignName).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, campaignName).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 
 	if sql.ErrNoRows == err {
 		responseStr := fmt.Sprintf("%s not found", campaignName)

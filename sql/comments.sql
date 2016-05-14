@@ -77,6 +77,8 @@ COMMENT ON COLUMN payments.contact_email IS 'Contact e-mail of backer';
 COMMENT ON COLUMN payments.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
 COMMENT ON COLUMN payments.advertise IS 'Whether to advertise user''s payment';
 COMMENT ON COLUMN payments.advertise_other IS 'Use alternate value to advertise user''s payment';
+COMMENT ON COLUMN payments.payment_processor_ids IS 'Transaction ids used by payment processor';
+COMMENT ON COLUMN payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN payments.created_at IS 'Timestamp of payment creation.';
 COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was updated';
 

@@ -73,10 +73,12 @@ CREATE TABLE payments
     contact_opt_in BOOLEAN NOT NULL DEFAULT(true),
     advertise BOOLEAN NOT NULL DEFAULT(true),
     advertise_other VARCHAR NULL,
+    payment_processor_ids JSONB NULL,
+    payment_processor_responses JSONB NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    CHECK (account_type = 'bank_ach' AND bank_routing_number IS NOT NULL AND bank_account_number IS NOT NULL OR account_type = 'credit_card' AND credit_card_account_number IS NOT NULL AND credit_card_expiration_date IS NOT NULL AND credit_card_cvv IS NOT NULL AND credit_card_postal_code IS NOT NULL OR account_type = 'paypal' AND paypal_email IS NOT NULL OR account_type = 'bitcoin' AND bitcoin_address IS NOT NULL),
-    CHECK (bank_account_number IS NOT NULL OR credit_card_account_number IS NOT NULL OR paypal_email IS NOT NULL OR bitcoin_address IS NOT NULL),
+    CHECK (state = 'pending' OR (account_type = 'bank_ach' AND bank_routing_number IS NOT NULL AND bank_account_number IS NOT NULL OR account_type = 'credit_card' AND credit_card_account_number IS NOT NULL AND credit_card_expiration_date IS NOT NULL AND credit_card_cvv IS NOT NULL AND credit_card_postal_code IS NOT NULL OR account_type = 'paypal' AND paypal_email IS NOT NULL OR account_type = 'bitcoin' AND bitcoin_address IS NOT NULL)),
+    CHECK (state = 'pending' OR (bank_account_number IS NOT NULL OR credit_card_account_number IS NOT NULL OR paypal_email IS NOT NULL OR bitcoin_address IS NOT NULL)),
     CHECK (bank_account_number IS NULL OR credit_card_account_number IS NULL OR paypal_email IS NULL OR bitcoin_address IS NULL),
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$')
 );

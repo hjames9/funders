@@ -20,10 +20,10 @@ const (
 	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8) RETURNING id"
 	RM_CAMPAIGN_QUERY     = "DELETE FROM funders.campaigns WHERE name = $1"
 	RM_PERK_QUERY         = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
-	UPDATE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET ? WHERE name = ?"
-	UPDATE_PERK_QUERY     = "UPDATE funders.perks SET ? WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
-	ACTIVE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET active = $1 WHERE name = $2"
-	ACTIVE_PERK_QUERY     = "UPDATE funders.perks SET active = $1 WHERE name = $2 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $3)"
+	UPDATE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET updated_at = $1, ? WHERE name = ?"
+	UPDATE_PERK_QUERY     = "UPDATE funders.perks SET updated_at = $1, ? WHERE name = ? AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = ?)"
+	ACTIVE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET updated_at = $1, active = $2 WHERE name = $3"
+	ACTIVE_PERK_QUERY     = "UPDATE funders.perks SET updated_at = $1, active = $2 WHERE name = $3 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $4)"
 	TIME_LAYOUT           = "2006-01-02"
 )
 
@@ -170,23 +170,23 @@ func createUpdateQueryString(templateQuery string, values map[string]interface{}
 
 func updateCampaignFromDatabase(db *sql.DB, values map[string]interface{}, campaignName string) error {
 	campaignQuery, parameters := createUpdateQueryString(UPDATE_CAMPAIGN_QUERY, values)
-	_, err := db.Exec(campaignQuery, parameters, campaignName)
+	_, err := db.Exec(campaignQuery, time.Now(), parameters, campaignName)
 	return err
 }
 
 func updatePerkFromDatabase(db *sql.DB, values map[string]interface{}, campaignName string, perkName string) error {
 	perkQuery, parameters := createUpdateQueryString(UPDATE_PERK_QUERY, values)
-	_, err := db.Exec(perkQuery, parameters, perkName, campaignName)
+	_, err := db.Exec(perkQuery, time.Now(), parameters, perkName, campaignName)
 	return err
 }
 
 func flipActivationForCampaign(db *sql.DB, campaignName string, active bool) error {
-	_, err := db.Exec(ACTIVE_CAMPAIGN_QUERY, active, campaignName)
+	_, err := db.Exec(ACTIVE_CAMPAIGN_QUERY, time.Now(), active, campaignName)
 	return err
 }
 
 func flipActivationForPerk(db *sql.DB, campaignName string, perkName string, active bool) error {
-	_, err := db.Exec(ACTIVE_PERK_QUERY, active, perkName, campaignName)
+	_, err := db.Exec(ACTIVE_PERK_QUERY, time.Now(), active, perkName, campaignName)
 	return err
 }
 
