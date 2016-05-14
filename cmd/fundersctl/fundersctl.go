@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -15,11 +16,15 @@ import (
 )
 
 const (
-	ADD_CAMPAIGN_QUERY = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
-	ADD_PERK_QUERY     = "INSERT INTO funders.perks (campaign_id, name, description, price, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8) RETURNING id"
-	RM_CAMPAIGN_QUERY  = "DELETE FROM funders.campaigns WHERE name = $1"
-	RM_PERK_QUERY      = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
-	TIME_LAYOUT        = "2006-01-02"
+	ADD_CAMPAIGN_QUERY    = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+	RM_CAMPAIGN_QUERY     = "DELETE FROM funders.campaigns WHERE name = $1"
+	RM_PERK_QUERY         = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
+	UPDATE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET ? WHERE name = ?"
+	UPDATE_PERK_QUERY     = "UPDATE funders.perks SET ? WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
+	ACTIVE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET active = $1 WHERE name = $2"
+	ACTIVE_PERK_QUERY     = "UPDATE funders.perks SET active = $1 WHERE name = $2 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $3)"
+	TIME_LAYOUT           = "2006-01-02"
 )
 
 func getCampaignFromCommandLine() (common.Campaign, error) {
@@ -143,6 +148,48 @@ func removePerkFromDatabase(db *sql.DB, campaignName string, perkName string) er
 	return err
 }
 
+func createUpdateQueryString(templateQuery string, values map[string]interface{}) (string, []interface{}) {
+	var buffer bytes.Buffer
+	counter := 0
+
+	parameters := make([]interface{}, 0, len(values))
+
+	for key, value := range values {
+		counter++
+		buffer.WriteString(fmt.Sprintf("%s = $%d, ", key, counter))
+		parameters = append(parameters, value)
+	}
+
+	buffer.Truncate(buffer.Len() - 1)
+
+	newQuery := strings.Replace(templateQuery, "?", buffer.String(), 1)
+	newQuery = strings.Replace(newQuery, "?", fmt.Sprintf("$%d", counter), 1)
+
+	return newQuery, parameters
+}
+
+func updateCampaignFromDatabase(db *sql.DB, values map[string]interface{}, campaignName string) error {
+	campaignQuery, parameters := createUpdateQueryString(UPDATE_CAMPAIGN_QUERY, values)
+	_, err := db.Exec(campaignQuery, parameters, campaignName)
+	return err
+}
+
+func updatePerkFromDatabase(db *sql.DB, values map[string]interface{}, campaignName string, perkName string) error {
+	perkQuery, parameters := createUpdateQueryString(UPDATE_PERK_QUERY, values)
+	_, err := db.Exec(perkQuery, parameters, perkName, campaignName)
+	return err
+}
+
+func flipActivationForCampaign(db *sql.DB, campaignName string, active bool) error {
+	_, err := db.Exec(ACTIVE_CAMPAIGN_QUERY, active, campaignName)
+	return err
+}
+
+func flipActivationForPerk(db *sql.DB, campaignName string, perkName string, active bool) error {
+	_, err := db.Exec(ACTIVE_PERK_QUERY, active, perkName, campaignName)
+	return err
+}
+
 func main() {
 	dbUrl := os.Getenv("DATABASE_URL")
 	dbUser := os.Getenv("DB_USER")
@@ -180,10 +227,21 @@ func main() {
 	db := dbCredentials.GetDatabase()
 	defer db.Close()
 
+	//Command line flags
 	addCampaignFlag := flag.Bool("add_campaign", false, "Add campaign for crowdfunding")
 	addPerkFlag := flag.Bool("add_perk", false, "Add perk for existing campaign")
+
 	rmCampaignFlag := flag.Bool("rm_campaign", false, "Remove campaign for crowdfunding")
 	rmPerkFlag := flag.Bool("rm_perk", false, "Remove perk for existing campaign")
+
+	updateCampaignFlag := flag.Bool("up_campaign", false, "Update existing campaign attributes")
+	updatePerkFlag := flag.Bool("up_perk", false, "Update perk for existing campaign")
+
+	activateCampaignFlag := flag.Bool("activate_campaign", false, "Activate deactive campaign")
+	deactivateCampaignFlag := flag.Bool("deactivate_campaign", false, "Deactivate active campaign")
+
+	activatePerkFlag := flag.Bool("activate_perk", false, "Activate deactive perk")
+	deactivatePerkFlag := flag.Bool("deactivate_perk", false, "Deactivate active perk")
 	flag.Parse()
 
 	if *addCampaignFlag {
@@ -234,6 +292,21 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+	} else if *updateCampaignFlag {
+		log.Print("Update campaign")
+	} else if *updatePerkFlag {
+		log.Print("Update perk")
+	} else if *activateCampaignFlag {
+		//log.Printf("Activate campaign %s", campaignName)
+		//err := flipActivationForCampaign(db, campaignName, true)
+	} else if *deactivateCampaignFlag {
+		//log.Printf("Deactivate campaign %s", campaignName)
+		//err := flipActivationForCampaign(db, campaignName, false)
+	} else if *activatePerkFlag {
+		//log.Printf("Activate campaign %s", campaignName)
+		//err := flipActivationForPerk(db, campaignName, true)
+	} else if *deactivatePerkFlag {
+		//err := flipActivationForPerk(db, campaignName, false)
 	} else {
 		flag.Usage()
 	}
