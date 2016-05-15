@@ -78,7 +78,7 @@ type Payment struct {
 type Response struct {
 	Code    int
 	Message string
-	Id      int64 `json:",omitempty"`
+	Id      string `json:",omitempty"`
 }
 
 type RequestLocation int
@@ -273,17 +273,38 @@ func makeStripePayment(payment Payment) error {
 	return err
 }
 
-func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (int64, error) {
-	var lastInsertId int64
+func createSqlString(value string) sql.NullString {
+	var nullValue sql.NullString
+	if len(value) != 0 {
+		nullValue = sql.NullString{value, true}
+	}
+	return nullValue
+}
+
+func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (string, error) {
+	var lastInsertId string
 	var err error
+
+	bankRoutingNumber := createSqlString(payment.BankRoutingNumber)
+	bankAccountNumber := createSqlString(payment.BankAccountNumber)
+	creditCardAccountNumber := createSqlString(payment.CreditCardAccountNumber)
+	creditCardExpirationDate := createSqlString(payment.CreditCardExpirationDate)
+	creditCardCvv := createSqlString(payment.CreditCardCvv)
+	creditCardPostalCode := createSqlString(payment.CreditCardPostalCode)
+	paypalEmail := createSqlString(payment.PaypalEmail)
+	bitcoinAddress := createSqlString(payment.BitcoinAddress)
+	address2 := createSqlString(payment.Address2)
+	contactEmail := createSqlString(payment.ContactEmail)
+	advertiseOther := createSqlString(payment.AdvertiseOther)
+
 	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, bankRoutingNumber, bankAccountNumber, creditCardAccountNumber, creditCardExpirationDate, creditCardCvv, creditCardPostalCode, paypalEmail, bitcoinAddress, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 	} else {
-		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.Amount, payment.State, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, bankRoutingNumber, bankAccountNumber, creditCardAccountNumber, creditCardExpirationDate, creditCardCvv, creditCardPostalCode, paypalEmail, bitcoinAddress, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 	}
 
 	if nil == err {
-		log.Printf("New payment id = %d", lastInsertId)
+		log.Printf("New payment id = %s", lastInsertId)
 	}
 
 	return lastInsertId, err
@@ -393,9 +414,11 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 }
 
 func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Payment) (int, string) {
-	id := uuid.NewV4()
+	payment.Id = uuid.NewV4().String()
+	payment.State = "pending"
+
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
-	res.Header().Set(LOCATION_HEADER, fmt.Sprintf("%s?id=%s", PAYMENTS_URL, id))
+	res.Header().Set(LOCATION_HEADER, fmt.Sprintf("%s?id=%s", PAYMENTS_URL, payment.Id))
 
 	log.Printf("Received new payment: %#v", payment)
 
@@ -406,17 +429,17 @@ func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Paym
 	if asyncRequest && running {
 		payments <- payment
 		responseStr := "Successfully added payment"
-		response = Response{Code: http.StatusAccepted, Message: responseStr}
+		response = Response{Code: http.StatusAccepted, Message: responseStr, Id: payment.Id}
 		log.Print(responseStr)
 	} else if asyncRequest && !running {
 		responseStr := "Could not add payment due to server maintenance"
-		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr}
+		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr, Id: payment.Id}
 		log.Print(responseStr)
 	} else {
 		id, err := addPayment(db, payment, nil)
 		if nil != err {
 			responseStr := "Could not add payment due to server error"
-			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			response = Response{Code: http.StatusInternalServerError, Message: responseStr, Id: payment.Id}
 			log.Print(responseStr)
 			log.Print(err)
 			log.Printf("%d database connections opened", db.Stats().OpenConnections)
