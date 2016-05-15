@@ -11,6 +11,8 @@ import (
 	"github.com/martini-contrib/cors"
 	"github.com/martini-contrib/secure"
 	"github.com/satori/go.uuid"
+	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/charge"
 	"log"
 	"math"
 	"net/http"
@@ -254,6 +256,21 @@ func batchAddPayment(db *sql.DB, asyncProcessInterval time.Duration, dbMaxOpenCo
 			start = end
 		}
 	}
+}
+
+func makeStripePayment(payment Payment) error {
+	stripe.Key = "sk_test_BQokikJOvBiI2HlWgH4olfQ2"
+
+	chargeParams := &stripe.ChargeParams{
+		Amount:   400,
+		Currency: "usd",
+		Desc:     "Charge for test@example.com",
+	}
+
+	chargeParams.SetSource("tok_189eV92eZvKYlo2CQy4JjX2D")
+	_, err := charge.New(chargeParams)
+
+	return err
 }
 
 func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (int64, error) {
