@@ -24,6 +24,12 @@
  *      function(response, status, payment) {}  //Error
  * );
  *
+ * funder.getPayment(params); //Synchronous
+ * funder.getPayment(params, //Asynchronous
+ *      function(response, status, payment) {}, //Success
+ *      function(response, status, payment) {}  //Error
+ * );
+ *
  */
 
 function isBetween(value, min, max)
@@ -92,6 +98,9 @@ function convertJSONToURLEncodedString(json)
 
 function Funder()
 {
+    this.campaignsPath = "/campaigns";
+    this.perksPath = "/perks";
+    this.paymentsPath = "/payments";
 };
 
 Funder.prototype.setUrl = function(url) {
@@ -136,6 +145,10 @@ Funder.prototype.getPerks = function(params, successFunc, errorFunc) {
 
 Funder.prototype.makePayment = function(params, successFunc, errorFunc) {
     return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPaymentsPath(), "POST");
+};
+
+Funder.prototype.getPayment = function(params, successFunc, errorFunc) {
+    return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPaymentsPath(), "GET");
 };
 
 Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url, method) {

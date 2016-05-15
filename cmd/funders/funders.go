@@ -49,30 +49,30 @@ const (
 
 type Payment struct {
 	Id                       string
-	CampaignId               int64  `form:"campaignid" binding:"required"`
-	PerkId                   int64  `form:"perkid" binding:"required"`
-	AccountType              string `form:"accounttype" binding:"required" json:"-"`
-	NameOnPayment            string
-	BankRoutingNumber        string
-	BankAccountNumber        string
-	CreditCardAccountNumber  string
-	CreditCardExpirationDate string
-	CreditCardCvv            string
-	CreditCardPostalCode     string
-	PaypalEmail              string
-	BitcoinAddress           string
-	FullName                 string
-	Address1                 string
-	Address2                 string
-	City                     string
-	PostalCode               string
-	Country                  string
+	CampaignId               int64   `form:"campaignId" binding:"required"`
+	PerkId                   int64   `form:"perkId" binding:"required"`
+	AccountType              string  `form:"accountType" binding:"required" json:"-"`
+	NameOnPayment            string  `form:"nameOnPayment" json:"-"`
+	BankRoutingNumber        string  `form:"bankRoutingNumber" json:"-"`
+	BankAccountNumber        string  `form:"bankAccountNumber" json:"-"`
+	CreditCardAccountNumber  string  `form:"creditCardAccountNumber" json:"-"`
+	CreditCardExpirationDate string  `form:"creditCardExpirationDate" json:"-"`
+	CreditCardCvv            string  `form:"creditCardCvv" json:"-"`
+	CreditCardPostalCode     string  `form:"creditCardPostalCode" json:"-"`
+	PaypalEmail              string  `form:"paypalEmail" json:"-"`
+	BitcoinAddress           string  `form:"bitcoinAddress" json:"-"`
+	FullName                 string  `form:"fullName" json:"-"`
+	Address1                 string  `form:"address1" json:"-"`
+	Address2                 string  `form:"address2" json:"-"`
+	City                     string  `form:"city" json:"-"`
+	PostalCode               string  `form:"postalCode" json:"-"`
+	Country                  string  `form:"country" json:"-"`
 	Amount                   float64 `form:"amount" binding:"required" json:"-"`
-	State                    string
-	ContactEmail             string
-	ContactOptIn             bool
-	Advertise                bool
-	AdvertiseOther           string
+	State                    string  `form:"state"`
+	ContactEmail             string  `form:"contactEmail" json:"-"`
+	ContactOptIn             bool    `form:"contactOptIn" json:"-"`
+	Advertise                bool    `form:"advertise" json:"-"`
+	AdvertiseOther           string  `form:"advertiseOther" json:"-"`
 }
 
 type Response struct {
@@ -129,7 +129,7 @@ var emailRegex *regexp.Regexp
 var botDetection BotDetection
 
 func (payment Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
-	errors = validateSizeLimit(payment.AccountType, "accounttype", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.AccountType, "accountType", stringSizeLimit, errors)
 	return errors
 }
 
