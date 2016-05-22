@@ -42,11 +42,11 @@ type Payment struct {
 	PaypalEmail              string  `form:"paypalEmail" json:"-"`
 	BitcoinAddress           string  `form:"bitcoinAddress" json:"-"`
 	FullName                 string  `form:"fullName" binding:"required" json:"-"`
-	Address1                 string  `form:"address1 "binding:"required" json:"-"`
+	Address1                 string  `form:"address1" "binding:"required" json:"-"`
 	Address2                 string  `form:"address2" json:"-"`
 	City                     string  `form:"city" binding:"required" json:"-"`
 	PostalCode               string  `form:"postalCode" binding:"required" json:"-"`
-	Country                  string  `form:"country "binding:"required" json:"-"`
+	Country                  string  `form:"country" "binding:"required" json:"-"`
 	Amount                   float64 `form:"amount" binding:"required" json:"-"`
 	State                    string
 	ContactEmail             string `form:"contactEmail" json:"-"`
