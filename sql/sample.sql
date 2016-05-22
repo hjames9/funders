@@ -8,6 +8,9 @@ INSERT INTO funders.campaigns VALUES (DEFAULT, 'kappa', 'Kappa is an alright con
 
 INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Alpha t-shirt', 'A black Alpha t-shirt', 25, 1000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
 INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Green Alpha', 'A green version of Alpha', 500, 3000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Silver Gamma', 'A silver version of Gamma', 500, 3000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Orange Delta', 'An orange version of Delta', 500, 3000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.perks VALUES (DEFAULT, 31337, 'Light blue Epsilon', 'A light blue version of Epsilon', 500, 3000, '2017-09-01', DEFAULT, current_timestamp, current_timestamp);
 INSERT INTO funders.perks VALUES (DEFAULT, 31339, 'Omega t-shirt', 'A black Omega t-shirt', 25, 1000, '2018-08-01', DEFAULT, current_timestamp, current_timestamp);
 INSERT INTO funders.perks VALUES (DEFAULT, 31339, 'Purple Omega', 'A purple version of Omega', 500, 3000, '2018-08-01', DEFAULT, current_timestamp, current_timestamp);
 INSERT INTO funders.perks VALUES (DEFAULT, 31341, 'Kappa t-shirt', 'A black Kappa t-shirt', 25, 1000, '2017-07-01', DEFAULT, current_timestamp, current_timestamp);

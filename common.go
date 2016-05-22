@@ -4,40 +4,16 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"io"
 	"os"
-	"time"
 )
 
 const (
 	DB_DRIVER = "postgres"
 )
-
-type Campaign struct {
-	Id          int64
-	Name        string
-	Description string
-	Goal        float64
-	NumRaised   float64
-	NumBackers  int64
-	StartDate   time.Time
-	EndDate     time.Time
-	Flexible    bool
-}
-
-type Perk struct {
-	Id           int64
-	CampaignId   int64
-	CampaignName string
-	Name         string
-	Description  string
-	Price        float64
-	Available    int64
-	ShipDate     time.Time
-	NumClaimed   int64
-}
 
 func AESEncrypt(key, text []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
@@ -82,4 +58,12 @@ func GetenvWithDefault(envKey string, defaultVal string) string {
 	}
 
 	return envVal
+}
+
+func CreateSqlString(value string) sql.NullString {
+	var nullValue sql.NullString
+	if len(value) != 0 {
+		nullValue = sql.NullString{value, true}
+	}
+	return nullValue
 }
