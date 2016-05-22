@@ -22,13 +22,14 @@ import (
 )
 
 const (
-	USER_AGENT_HEADER   = "User-Agent"
-	CONTENT_TYPE_HEADER = "Content-Type"
-	LOCATION_HEADER     = "Location"
-	ORIGIN_HEADER       = "Origin"
-	JSON_CONTENT_TYPE   = "application/json"
-	GET_METHOD          = "GET"
-	POST_METHOD         = "POST"
+	GET_ACCOUNT_TYPES_QUERY = "SELECT enum_range(NULL::funders.account_type) AS account_types"
+	USER_AGENT_HEADER       = "User-Agent"
+	CONTENT_TYPE_HEADER     = "Content-Type"
+	LOCATION_HEADER         = "Location"
+	ORIGIN_HEADER           = "Origin"
+	JSON_CONTENT_TYPE       = "application/json"
+	GET_METHOD              = "GET"
+	POST_METHOD             = "POST"
 )
 
 type Response struct {
@@ -40,6 +41,20 @@ type Response struct {
 var db *sql.DB
 var stringSizeLimit int
 var botDetection common.BotDetection
+var accountTypes map[string]bool
+
+func getAccountTypes() string {
+	var accountTypesStr string
+
+	err := db.QueryRow(GET_ACCOUNT_TYPES_QUERY).Scan(&accountTypesStr)
+	if nil != err {
+		log.Print(err)
+	} else {
+		accountTypesStr = strings.Trim(accountTypesStr, "{}")
+	}
+
+	return accountTypesStr
+}
 
 func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
 	if len(field) > sizeLimit {
@@ -235,6 +250,21 @@ func main() {
 		log.Fatalf("E-mail regex compilation failed for %s", EMAIL_REGEX)
 	}
 
+	//Allowable lead sources
+	accountTypesStr := getAccountTypes()
+	if len(accountTypesStr) > 0 {
+		accountTypes = make(map[string]bool)
+
+		accountTypesArr := strings.Split(accountTypesStr, ",")
+		for _, accountType := range accountTypesArr {
+			accountTypes[accountType] = true
+		}
+
+		log.Printf("Allowable account types: %s", accountTypesStr)
+	} else {
+		log.Fatal("Unable to retrieve account types from database")
+	}
+
 	//Robot detection field
 	botDetectionFieldLocationStr := common.GetenvWithDefault("BOTDETECT_FIELDLOCATION", "body")
 	botDetectionFieldName := common.GetenvWithDefault("BOTDETECT_FIELDNAME", "spambot")
@@ -304,7 +334,7 @@ func main() {
 		waitGroup.Add(1)
 		running = true
 		payments = make(chan Payment, asyncRequestSize)
-		go batchAddPayment(db, time.Duration(asyncProcessInterval), dbMaxOpenConns)
+		go batchAddPayment(time.Duration(asyncProcessInterval), dbMaxOpenConns)
 		log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
 		log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
 	}

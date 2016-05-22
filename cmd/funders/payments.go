@@ -32,7 +32,7 @@ type Payment struct {
 	CampaignId               int64   `form:"campaignId" binding:"required"`
 	PerkId                   int64   `form:"perkId" binding:"required"`
 	AccountType              string  `form:"accountType" binding:"required" json:"-"`
-	NameOnPayment            string  `form:"nameOnPayment" json:"-"`
+	NameOnPayment            string  `form:"nameOnPayment" binding:"required" json:"-"`
 	BankRoutingNumber        string  `form:"bankRoutingNumber" json:"-"`
 	BankAccountNumber        string  `form:"bankAccountNumber" json:"-"`
 	CreditCardAccountNumber  string  `form:"creditCardAccountNumber" json:"-"`
@@ -41,22 +41,68 @@ type Payment struct {
 	CreditCardPostalCode     string  `form:"creditCardPostalCode" json:"-"`
 	PaypalEmail              string  `form:"paypalEmail" json:"-"`
 	BitcoinAddress           string  `form:"bitcoinAddress" json:"-"`
-	FullName                 string  `form:"fullName" json:"-"`
-	Address1                 string  `form:"address1" json:"-"`
+	FullName                 string  `form:"fullName" binding:"required" json:"-"`
+	Address1                 string  `form:"address1 "binding:"required" json:"-"`
 	Address2                 string  `form:"address2" json:"-"`
-	City                     string  `form:"city" json:"-"`
-	PostalCode               string  `form:"postalCode" json:"-"`
-	Country                  string  `form:"country" json:"-"`
+	City                     string  `form:"city" binding:"required" json:"-"`
+	PostalCode               string  `form:"postalCode" binding:"required" json:"-"`
+	Country                  string  `form:"country "binding:"required" json:"-"`
 	Amount                   float64 `form:"amount" binding:"required" json:"-"`
-	State                    string  `form:"state"`
-	ContactEmail             string  `form:"contactEmail" json:"-"`
-	ContactOptIn             bool    `form:"contactOptIn" json:"-"`
-	Advertise                bool    `form:"advertise" json:"-"`
-	AdvertiseOther           string  `form:"advertiseOther" json:"-"`
+	State                    string
+	ContactEmail             string `form:"contactEmail" json:"-"`
+	ContactOptIn             bool   `form:"contactOptIn" json:"-"`
+	Advertise                bool   `form:"advertise" json:"-"`
+	AdvertiseOther           string `form:"advertiseOther" json:"-"`
 }
 
 func (payment Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	errors = validateSizeLimit(payment.AccountType, "accountType", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.NameOnPayment, "nameOnPayment", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.BankRoutingNumber, "bankRoutingNumber", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.BankAccountNumber, "bankAccountNumber", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.CreditCardAccountNumber, "creditCardAccountNumber", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.CreditCardExpirationDate, "creditCardExpirationDate", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.CreditCardCvv, "creditCardCvv", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.CreditCardPostalCode, "creditCardPostalCode", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.PaypalEmail, "paypalEmail", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.BitcoinAddress, "bitcoinAddress", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.FullName, "fullName", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.Address1, "address1", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.Address2, "address2", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.City, "city", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.PostalCode, "postalCode", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.Country, "country", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.ContactEmail, "contactEmail", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.AdvertiseOther, "advertiseOther", stringSizeLimit, errors)
+
+	if len(errors) == 0 {
+		if !accountTypes[payment.AccountType] {
+			message := fmt.Sprintf("Invalid account type \"%s\" specified", payment.AccountType)
+			errors = addError(errors, []string{"accountType"}, binding.TypeError, message)
+		}
+
+		if payment.AccountType == "credit_card" && (len(payment.CreditCardAccountNumber) == 0 || len(payment.CreditCardExpirationDate) == 0 || len(payment.CreditCardCvv) == 0 || len(payment.CreditCardPostalCode) == 0) {
+			errors = addError(errors, []string{"accountType", "creditCardAccountNumber", "creditCardExpirationDate", "creditCardCvv", "creditCardPostalCode"}, binding.RequiredError, "Credit card account number, expiration date, cvv and postal code required with credit_card account type")
+		}
+
+		if payment.AccountType == "bank_ach" && (len(payment.BankRoutingNumber) == 0 || len(payment.BankAccountNumber) == 0) {
+			errors = addError(errors, []string{"accountType", "bankRoutingNumber", "bankAccountNumber"}, binding.RequiredError, "Bank routing number and account number required with bank_ach account type")
+		}
+
+		if payment.AccountType == "paypal" && (len(payment.PaypalEmail) == 0) {
+			errors = addError(errors, []string{"accountType", "paypalEmail"}, binding.RequiredError, "Paypal email address required with paypal account type")
+		}
+
+		if payment.AccountType == "bitcoin" && (len(payment.BitcoinAddress) == 0) {
+			errors = addError(errors, []string{"accountType", "bitcoinAddress"}, binding.RequiredError, "Bitcoin address required with bitcoin account type")
+		}
+
+		if len(payment.ContactEmail) > 0 && !emailRegex.MatchString(payment.ContactEmail) {
+			message := fmt.Sprintf("Invalid email \"%s\" format specified", payment.ContactEmail)
+			errors = addError(errors, []string{"contactEmail"}, binding.TypeError, message)
+		}
+	}
+
 	return errors
 }
 
@@ -99,7 +145,7 @@ var payments chan Payment
 var running bool
 var waitGroup sync.WaitGroup
 
-func processPayment(db *sql.DB, paymentBatch []Payment) {
+func processPayment(paymentBatch []Payment) {
 	log.Printf("Starting batch processing of %d payments", len(paymentBatch))
 
 	defer waitGroup.Done()
@@ -121,7 +167,7 @@ func processPayment(db *sql.DB, paymentBatch []Payment) {
 
 	counter := 0
 	for _, payment := range paymentBatch {
-		_, err = addPayment(db, payment, statement)
+		_, err = addPayment(payment, statement)
 		if nil != err {
 			log.Printf("Error processing payment %#v", payment)
 			log.Print(err)
@@ -140,7 +186,7 @@ func processPayment(db *sql.DB, paymentBatch []Payment) {
 	}
 }
 
-func batchAddPayment(db *sql.DB, asyncProcessInterval time.Duration, dbMaxOpenConns int) {
+func batchAddPayment(asyncProcessInterval time.Duration, dbMaxOpenConns int) {
 	log.Print("Started batch writing thread")
 
 	defer waitGroup.Done()
@@ -195,7 +241,7 @@ func batchAddPayment(db *sql.DB, asyncProcessInterval time.Duration, dbMaxOpenCo
 			}
 
 			waitGroup.Add(1)
-			go processPayment(db, elements[start:end])
+			go processPayment(elements[start:end])
 
 			start = end
 		}
@@ -217,7 +263,7 @@ func makeStripePayment(payment Payment) error {
 	return err
 }
 
-func addPayment(db *sql.DB, payment Payment, statement *sql.Stmt) (string, error) {
+func addPayment(payment Payment, statement *sql.Stmt) (string, error) {
 	var lastInsertId string
 	var err error
 
@@ -340,7 +386,7 @@ func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Paym
 		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr, Id: payment.Id}
 		log.Print(responseStr)
 	} else {
-		id, err := addPayment(db, payment, nil)
+		id, err := addPayment(payment, nil)
 		if nil != err {
 			responseStr := "Could not add payment due to server error"
 			response = Response{Code: http.StatusInternalServerError, Message: responseStr, Id: payment.Id}
