@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"errors"
@@ -15,7 +16,9 @@ const (
 	DB_DRIVER = "postgres"
 )
 
-func AESEncrypt(key, text []byte) ([]byte, error) {
+func AESEncrypt(password string, text []byte) ([]byte, error) {
+	hasher := sha256.New()
+	key := hasher.Sum([]byte(password))
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -31,7 +34,9 @@ func AESEncrypt(key, text []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func AESDecrypt(key, text []byte) ([]byte, error) {
+func AESDecrypt(password string, text []byte) ([]byte, error) {
+	hasher := sha256.New()
+	key := hasher.Sum([]byte(password))
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

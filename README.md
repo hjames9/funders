@@ -12,6 +12,7 @@ A Go-based http server to create your own crowdfunding campaign on your website.
     DB_PORT=5432 (default is 5432, ignored with DATABASE_URL set)
     DB_MAX_OPEN_CONNS=100 (default is 10)
     DB_MAX_IDLE_CONNS=100 (default is 0)
+    DB_CRYPTO_PASSPHRASE=youshouldsetthis (no default)
     PGAPPNAME=funders (default is funders)
     SSL_REDIRECT=true (default is false)
     HOST=localhost (default is all interfaces (blank))
@@ -26,5 +27,4 @@ A Go-based http server to create your own crowdfunding campaign on your website.
     ASYNC_REQUEST=true (default is false)
     ASYNC_REQUEST_SIZE=100000 (default is 100000)
     ASYNC_PROCESS_INTERVAL=10 (default is 5 seconds)
-    IP_ADDRESS_LOCATION=xff_first (default is normal, can be normal, xff_first, xff_last)
     STRING_SIZE_LIMIT=1000 (default is 500)

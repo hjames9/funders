@@ -144,6 +144,7 @@ var asyncRequest bool
 var payments chan Payment
 var running bool
 var waitGroup sync.WaitGroup
+var dbCryptoPassphrase string
 
 func processPayment(paymentBatch []Payment) {
 	log.Printf("Starting batch processing of %d payments", len(paymentBatch))

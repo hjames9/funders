@@ -10,6 +10,7 @@ import (
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/cors"
 	"github.com/martini-contrib/secure"
+	"github.com/satori/go.uuid"
 	"log"
 	"net/http"
 	"os"
@@ -108,7 +109,7 @@ func errorHandler(errors binding.Errors, res http.ResponseWriter) {
 		} else if errors.Has(common.BOT_ERROR) {
 			if botDetection.PlayCoy && !asyncRequest {
 				res.WriteHeader(http.StatusCreated)
-				//response = Response{Code: http.StatusCreated, Message: "Successfully added payment", Id: getNextId(db)}
+				response = Response{Code: http.StatusCreated, Message: "Successfully added payment", Id: uuid.NewV4().String()}
 				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
 			} else if botDetection.PlayCoy && asyncRequest {
 				res.WriteHeader(http.StatusAccepted)
@@ -232,6 +233,14 @@ func main() {
 
 	db = dbCredentials.GetDatabase()
 	defer db.Close()
+
+	//Get database crypto passphrase for sensitive database fields
+	dbCryptoPassphrase = os.Getenv("DB_CRYPTO_PASSPHRASE")
+	if len(dbCryptoPassphrase) > 0 {
+		log.Printf("Temporarily stored sensitive database fields will be encrypted")
+	} else {
+		log.Printf("Temporarily stored sensitive database fields will NOT be encrypted")
+	}
 
 	//Get configurable string size limits
 	stringSizeLimitStr := common.GetenvWithDefault("STRING_SIZE_LIMIT", "500")
