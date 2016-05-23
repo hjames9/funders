@@ -268,14 +268,14 @@ func addPayment(payment Payment, statement *sql.Stmt) (string, error) {
 	var lastInsertId string
 	var err error
 
-	bankRoutingNumber := common.CreateSqlString(payment.BankRoutingNumber)
-	bankAccountNumber := common.CreateSqlString(payment.BankAccountNumber)
-	creditCardAccountNumber := common.CreateSqlString(payment.CreditCardAccountNumber)
-	creditCardExpirationDate := common.CreateSqlString(payment.CreditCardExpirationDate)
-	creditCardCvv := common.CreateSqlString(payment.CreditCardCvv)
-	creditCardPostalCode := common.CreateSqlString(payment.CreditCardPostalCode)
-	paypalEmail := common.CreateSqlString(payment.PaypalEmail)
-	bitcoinAddress := common.CreateSqlString(payment.BitcoinAddress)
+	bankRoutingNumber := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.BankRoutingNumber)
+	bankAccountNumber := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.BankAccountNumber)
+	creditCardAccountNumber := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.CreditCardAccountNumber)
+	creditCardExpirationDate := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.CreditCardExpirationDate)
+	creditCardCvv := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.CreditCardCvv)
+	creditCardPostalCode := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.CreditCardPostalCode)
+	paypalEmail := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.PaypalEmail)
+	bitcoinAddress := common.CreateClearOrSensitiveSqlString(dbCryptoPassphrase, payment.BitcoinAddress)
 	address2 := common.CreateSqlString(payment.Address2)
 	contactEmail := common.CreateSqlString(payment.ContactEmail)
 	advertiseOther := common.CreateSqlString(payment.AdvertiseOther)

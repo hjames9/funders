@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"log"
 	"os"
 )
 
@@ -16,27 +17,34 @@ const (
 	DB_DRIVER = "postgres"
 )
 
-func AESEncrypt(password string, text []byte) ([]byte, error) {
+func AESEncrypt(passphrase string, text []byte) (string, error) {
 	hasher := sha256.New()
-	key := hasher.Sum([]byte(password))
+	key := hasher.Sum([]byte(passphrase))
+	key = key[:32]
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	b := base64.StdEncoding.EncodeToString(text)
 	ciphertext := make([]byte, aes.BlockSize+len(b))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
+		return "", err
 	}
 	cfb := cipher.NewCFBEncrypter(block, iv)
 	cfb.XORKeyStream(ciphertext[aes.BlockSize:], []byte(b))
-	return ciphertext, nil
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func AESDecrypt(password string, text []byte) ([]byte, error) {
+func AESDecrypt(passphrase string, textStr string) ([]byte, error) {
+	text, err := base64.StdEncoding.DecodeString(textStr)
+	if err != nil {
+		return nil, err
+	}
+
 	hasher := sha256.New()
-	key := hasher.Sum([]byte(password))
+	key := hasher.Sum([]byte(passphrase))
+	key = key[:32]
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -67,8 +75,29 @@ func GetenvWithDefault(envKey string, defaultVal string) string {
 
 func CreateSqlString(value string) sql.NullString {
 	var nullValue sql.NullString
-	if len(value) != 0 {
+	if len(value) > 0 {
 		nullValue = sql.NullString{value, true}
 	}
 	return nullValue
+}
+
+func CreateSensitiveSqlString(passphrase string, value string) sql.NullString {
+	var nullValue sql.NullString
+	if len(value) > 0 {
+		cipherText, err := AESEncrypt(passphrase, []byte(value))
+		if nil == err {
+			nullValue = CreateSqlString(cipherText)
+		} else {
+			log.Print(err)
+		}
+	}
+	return nullValue
+}
+
+func CreateClearOrSensitiveSqlString(passphrase string, value string) sql.NullString {
+	if len(passphrase) > 0 {
+		return CreateSensitiveSqlString(passphrase, value)
+	} else {
+		return CreateSqlString(value)
+	}
 }
