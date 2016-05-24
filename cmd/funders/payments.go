@@ -21,38 +21,42 @@ import (
 const (
 	GET_PENDING_PAYMENTS_QUERY = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE state = 'pending'"
 	GET_PAYMENT_QUERY          = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE id = $1"
-	ADD_PAYMENT_QUERY          = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, bank_routing_number, bank_account_number, credit_card_account_number, credit_card_expiration_date, credit_card_cvv, credit_card_postal_code, paypal_email, bitcoin_address, full_name, address1, address2, city, postal_code, country, amount, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27) RETURNING id"
-	UPDATE_PAYMENT_QUERY       = "UPDATE funders.payments SET updated_at = $1, state = $2, bank_routing_number = NULL, bank_account_number = NULL, credit_card_account_number = NULL, credit_card_expiration_date = NULL, credit_card_cvv = NULL, credit_card_postal_code = NULL, paypal_email = NULL, bitcoin_address = NULL WHERE id = $3 AND state <> 'pending'"
+	ADD_PAYMENT_QUERY          = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, bank_routing_number, bank_account_number, credit_card_account_number, credit_card_expiration_date, credit_card_cvv, credit_card_postal_code, paypal_email, bitcoin_address, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING id"
+	UPDATE_SUCCESSFUL_PAYMENT  = "UPDATE funders.payments SET updated_at = $1, state = $2, bank_routing_number = NULL, bank_account_number = NULL, credit_card_account_number = NULL, credit_card_expiration_date = NULL, credit_card_cvv = NULL, credit_card_postal_code = NULL, paypal_email = NULL, bitcoin_address = NULL WHERE id = $3 AND state <> 'pending'"
+	UPDATE_PAYMENT_QUERY       = "UPDATE funders.payments SET updated_at = $1, payment_processor_ids = $2, payment_processor_responses = $3 WHERE id = $4 AND state <> 'pending'"
 	EMAIL_REGEX                = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
 	PAYMENTS_URL               = "/payments"
 )
 
 type Payment struct {
-	Id                       string
-	CampaignId               int64   `form:"campaignId" binding:"required"`
-	PerkId                   int64   `form:"perkId" binding:"required"`
-	AccountType              string  `form:"accountType" binding:"required" json:"-"`
-	NameOnPayment            string  `form:"nameOnPayment" binding:"required" json:"-"`
-	BankRoutingNumber        string  `form:"bankRoutingNumber" json:"-"`
-	BankAccountNumber        string  `form:"bankAccountNumber" json:"-"`
-	CreditCardAccountNumber  string  `form:"creditCardAccountNumber" json:"-"`
-	CreditCardExpirationDate string  `form:"creditCardExpirationDate" json:"-"`
-	CreditCardCvv            string  `form:"creditCardCvv" json:"-"`
-	CreditCardPostalCode     string  `form:"creditCardPostalCode" json:"-"`
-	PaypalEmail              string  `form:"paypalEmail" json:"-"`
-	BitcoinAddress           string  `form:"bitcoinAddress" json:"-"`
-	FullName                 string  `form:"fullName" binding:"required" json:"-"`
-	Address1                 string  `form:"address1" "binding:"required" json:"-"`
-	Address2                 string  `form:"address2" json:"-"`
-	City                     string  `form:"city" binding:"required" json:"-"`
-	PostalCode               string  `form:"postalCode" binding:"required" json:"-"`
-	Country                  string  `form:"country" "binding:"required" json:"-"`
-	Amount                   float64 `form:"amount" binding:"required" json:"-"`
-	State                    string
-	ContactEmail             string `form:"contactEmail" json:"-"`
-	ContactOptIn             bool   `form:"contactOptIn" json:"-"`
-	Advertise                bool   `form:"advertise" json:"-"`
-	AdvertiseOther           string `form:"advertiseOther" json:"-"`
+	Id                        string
+	CampaignId                int64   `form:"campaignId" binding:"required"`
+	PerkId                    int64   `form:"perkId" binding:"required"`
+	AccountType               string  `form:"accountType" binding:"required" json:"-"`
+	NameOnPayment             string  `form:"nameOnPayment" binding:"required" json:"-"`
+	BankRoutingNumber         string  `form:"bankRoutingNumber" json:"-"`
+	BankAccountNumber         string  `form:"bankAccountNumber" json:"-"`
+	CreditCardAccountNumber   string  `form:"creditCardAccountNumber" json:"-"`
+	CreditCardExpirationDate  string  `form:"creditCardExpirationDate" json:"-"`
+	CreditCardCvv             string  `form:"creditCardCvv" json:"-"`
+	CreditCardPostalCode      string  `form:"creditCardPostalCode" json:"-"`
+	PaypalEmail               string  `form:"paypalEmail" json:"-"`
+	BitcoinAddress            string  `form:"bitcoinAddress" json:"-"`
+	FullName                  string  `form:"fullName" binding:"required" json:"-"`
+	Address1                  string  `form:"address1" "binding:"required" json:"-"`
+	Address2                  string  `form:"address2" json:"-"`
+	City                      string  `form:"city" binding:"required" json:"-"`
+	PostalCode                string  `form:"postalCode" binding:"required" json:"-"`
+	Country                   string  `form:"country" "binding:"required" json:"-"`
+	Amount                    float64 `form:"amount" binding:"required" json:"-"`
+	Currency                  string  `form:"currency" binding:"required" json:"-"`
+	State                     string
+	ContactEmail              string `form:"contactEmail" json:"-"`
+	ContactOptIn              bool   `form:"contactOptIn" json:"-"`
+	Advertise                 bool   `form:"advertise" json:"-"`
+	AdvertiseOther            string `form:"advertiseOther" json:"-"`
+	PaymentProcessIds         string `json:"-"`
+	PaymentProcessorResponses string `json:"-"`
 }
 
 func (payment Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
@@ -101,6 +105,11 @@ func (payment Payment) Validate(errors binding.Errors, req *http.Request) bindin
 			message := fmt.Sprintf("Invalid email \"%s\" format specified", payment.ContactEmail)
 			errors = addError(errors, []string{"contactEmail"}, binding.TypeError, message)
 		}
+
+		if len(payment.Currency) > 0 && currencies != nil && !currencies[payment.Currency] {
+			message := fmt.Sprintf("Invalid currency \"%s\" specified", payment.Currency)
+			errors = addError(errors, []string{"currency"}, binding.TypeError, message)
+		}
 	}
 
 	return errors
@@ -139,12 +148,14 @@ func (ps Payments) GetPayment(id string) (*Payment, bool) {
 	return val, exists
 }
 
+var currencies map[string]bool
 var emailRegex *regexp.Regexp
 var asyncRequest bool
 var payments chan Payment
 var running bool
 var waitGroup sync.WaitGroup
 var dbCryptoPassphrase string
+var paymentProcessorKey string
 
 func processPayment(paymentBatch []Payment) {
 	log.Printf("Starting batch processing of %d payments", len(paymentBatch))
@@ -250,11 +261,11 @@ func batchAddPayment(asyncProcessInterval time.Duration, dbMaxOpenConns int) {
 }
 
 func makeStripePayment(payment Payment) error {
-	stripe.Key = "sk_test_BQokikJOvBiI2HlWgH4olfQ2"
+	stripe.Key = paymentProcessorKey
 
 	chargeParams := &stripe.ChargeParams{
-		Amount:   400,
-		Currency: "usd",
+		Amount:   uint64(payment.Amount),
+		Currency: stripe.Currency(payment.Currency),
 		Desc:     "Charge for test@example.com",
 	}
 
@@ -281,9 +292,9 @@ func addPayment(payment Payment, statement *sql.Stmt) (string, error) {
 	advertiseOther := common.CreateSqlString(payment.AdvertiseOther)
 
 	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, bankRoutingNumber, bankAccountNumber, creditCardAccountNumber, creditCardExpirationDate, creditCardCvv, creditCardPostalCode, paypalEmail, bitcoinAddress, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, bankRoutingNumber, bankAccountNumber, creditCardAccountNumber, creditCardExpirationDate, creditCardCvv, creditCardPostalCode, paypalEmail, bitcoinAddress, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 	} else {
-		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, bankRoutingNumber, bankAccountNumber, creditCardAccountNumber, creditCardExpirationDate, creditCardCvv, creditCardPostalCode, paypalEmail, bitcoinAddress, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, bankRoutingNumber, bankAccountNumber, creditCardAccountNumber, creditCardExpirationDate, creditCardCvv, creditCardPostalCode, paypalEmail, bitcoinAddress, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 	}
 
 	if nil == err {

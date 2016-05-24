@@ -28,3 +28,5 @@ A Go-based http server to create your own crowdfunding campaign on your website.
     ASYNC_REQUEST_SIZE=100000 (default is 100000)
     ASYNC_PROCESS_INTERVAL=10 (default is 5 seconds)
     STRING_SIZE_LIMIT=1000 (default is 500)
+    PAYMENT_PROCESSOR_KEY=sk_test_BQokikJOvBiI2HlWgH4olfQ2 (no default)
+    ALLOWABLE_CURRENCIES=USD,EC,EUR (default is empty for all allowable currencies)

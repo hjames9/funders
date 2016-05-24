@@ -72,6 +72,7 @@ COMMENT ON COLUMN payments.city IS 'Shipping city for perk';
 COMMENT ON COLUMN payments.postal_code IS 'Shipping postal code for perk';
 COMMENT ON COLUMN payments.country IS 'Shipping country for perk';
 COMMENT ON COLUMN payments.amount IS 'Amount of the payment';
+COMMENT ON COLUMN payments.currency IS 'Currency of the payment';
 COMMENT ON COLUMN payments.state IS 'Current state of the payment';
 COMMENT ON COLUMN payments.contact_email IS 'Contact e-mail of backer';
 COMMENT ON COLUMN payments.contact_opt_in IS 'Flag if user wants to opt in for future mailings';

@@ -68,6 +68,7 @@ CREATE TABLE payments
     postal_code VARCHAR NOT NULL,
     country VARCHAR NOT NULL,
     amount NUMERIC NOT NULL,
+    currency VARCHAR NOT NULL,
     state PAYMENT_STATE NOT NULL,
     contact_email VARCHAR NULL,
     contact_opt_in BOOLEAN NOT NULL DEFAULT(true),

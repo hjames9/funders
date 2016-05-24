@@ -251,6 +251,14 @@ func main() {
 		log.Print(err)
 	}
 
+	//Get access key for payment processor
+	paymentProcessorKey = os.Getenv("PAYMENT_PROCESSOR_KEY")
+	if len(paymentProcessorKey) > 0 {
+		log.Printf("Payment processor key is set to: %s", paymentProcessorKey)
+	} else {
+		log.Print("Payment processor key is NOT set")
+	}
+
 	//E-mail regular expression
 	log.Print("Compiling e-mail regular expression")
 	emailRegex, err = regexp.Compile(EMAIL_REGEX)
@@ -272,6 +280,21 @@ func main() {
 		log.Printf("Allowable account types: %s", accountTypesStr)
 	} else {
 		log.Fatal("Unable to retrieve account types from database")
+	}
+
+	//Allowable currencies
+	currenciesStr := os.Getenv("ALLOWABLE_CURRENCIES")
+	if len(currenciesStr) > 0 {
+		currencies = make(map[string]bool)
+
+		currenciesArr := strings.Split(currenciesStr, ",")
+		for _, currency := range currenciesArr {
+			currencies[currency] = true
+		}
+
+		log.Printf("Allowable currencies: %s", currenciesStr)
+	} else {
+		log.Print("Any currency available")
 	}
 
 	//Robot detection field
