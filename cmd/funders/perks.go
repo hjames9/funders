@@ -18,25 +18,54 @@ const (
 )
 
 type Perk struct {
-	Id           int64
-	CampaignId   int64
-	CampaignName string
-	Name         string
-	Description  string
-	Price        float64
-	Available    int64
-	ShipDate     time.Time
-	NumClaimed   int64
+	Id           int64     `json:"id"`
+	CampaignId   int64     `json:"campaignId"`
+	CampaignName string    `json:"campaignName"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description"`
+	Price        float64   `json:"price"`
+	Available    int64     `json:"available"`
+	ShipDate     time.Time `json:"shipDate"`
+	numClaimed   int64
+	lock         sync.RWMutex
+}
+
+func (perk Perk) IsAvailable() bool {
+	return perk.Available > perk.numClaimed
+}
+
+func (perk Perk) IncrementNumClaimed(amount int64) int64 {
+	perk.lock.Lock()
+	defer perk.lock.Unlock()
+	perk.numClaimed += amount
+	return perk.numClaimed
+}
+
+func (perk Perk) MarshalJSON() ([]byte, error) {
+	perk.lock.RLock()
+	numClaimed := perk.numClaimed
+	perk.lock.RUnlock()
+
+	type MyPerk Perk
+	return json.Marshal(&struct {
+		NumClaimed int64 `json:"numClaimed"`
+		*MyPerk
+	}{
+		NumClaimed: numClaimed,
+		MyPerk:     (*MyPerk)(&perk),
+	})
 }
 
 type Perks struct {
-	lock   sync.RWMutex
-	values map[string][]*Perk
+	lock       sync.RWMutex
+	nameValues map[string][]*Perk
+	idValues   map[int64]*Perk
 }
 
 func NewPerks() *Perks {
 	perks := new(Perks)
-	perks.values = make(map[string][]*Perk)
+	perks.nameValues = make(map[string][]*Perk)
+	perks.idValues = make(map[int64]*Perk)
 	return perks
 }
 
@@ -44,14 +73,22 @@ func (pks Perks) AddOrReplacePerks(perks []*Perk) {
 	pks.lock.Lock()
 	defer pks.lock.Unlock()
 	for _, perk := range perks {
-		pks.values[perk.CampaignName] = perks
+		pks.nameValues[perk.CampaignName] = perks
+		pks.idValues[perk.Id] = perk
 	}
 }
 
 func (pks Perks) GetPerks(name string) ([]*Perk, bool) {
 	pks.lock.RLock()
 	defer pks.lock.RUnlock()
-	val, exists := pks.values[name]
+	val, exists := pks.nameValues[name]
+	return val, exists
+}
+
+func (pks Perks) GetPerk(id int64) (*Perk, bool) {
+	pks.lock.RLock()
+	defer pks.lock.RUnlock()
+	val, exists := pks.idValues[id]
 	return val, exists
 }
 
@@ -77,7 +114,7 @@ func getPerksFromDb(args ...string) ([]*Perk, error) {
 	var perks []*Perk
 	for rows.Next() {
 		var perk Perk
-		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.ShipDate, &perk.NumClaimed)
+		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.ShipDate, &perk.numClaimed)
 		if nil == err {
 			perks = append(perks, &perk)
 		} else {
@@ -85,7 +122,7 @@ func getPerksFromDb(args ...string) ([]*Perk, error) {
 		}
 	}
 
-	if nil != err {
+	if nil == err {
 		err = rows.Err()
 	}
 

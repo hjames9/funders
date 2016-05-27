@@ -17,32 +17,68 @@ const (
 )
 
 type Campaign struct {
-	Id          int64
-	Name        string
-	Description string
-	Goal        float64
-	NumRaised   float64
-	NumBackers  int64
-	StartDate   time.Time
-	EndDate     time.Time
-	Flexible    bool
+	Id          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Goal        float64 `json:"goal"`
+	numRaised   float64
+	numBackers  int64
+	StartDate   time.Time `json:"startDate"`
+	EndDate     time.Time `json:"endDate"`
+	Flexible    bool      `json:"flexible"`
+	lock        sync.RWMutex
+}
+
+func (campaign Campaign) IncrementNumRaised(amount float64) float64 {
+	campaign.lock.Lock()
+	defer campaign.lock.Unlock()
+	campaign.numRaised += amount
+	return campaign.numRaised
+}
+
+func (campaign Campaign) IncrementNumBackers(amount int64) int64 {
+	campaign.lock.Lock()
+	defer campaign.lock.Unlock()
+	campaign.numBackers += amount
+	return campaign.numBackers
+}
+
+func (campaign Campaign) MarshalJSON() ([]byte, error) {
+	campaign.lock.RLock()
+	numRaised := campaign.numRaised
+	numBackers := campaign.numBackers
+	campaign.lock.RUnlock()
+
+	type MyCampaign Campaign
+	return json.Marshal(&struct {
+		NumRaised  float64 `json:"numRaised"`
+		NumBackers int64   `json:"numBackers"`
+		*MyCampaign
+	}{
+		NumRaised:  numRaised,
+		NumBackers: numBackers,
+		MyCampaign: (*MyCampaign)(&campaign),
+	})
 }
 
 type Campaigns struct {
-	lock   sync.RWMutex
-	values map[string]*Campaign
+	lock       sync.RWMutex
+	nameValues map[string]*Campaign
+	idValues   map[int64]*Campaign
 }
 
 func NewCampaigns() *Campaigns {
 	campaigns := new(Campaigns)
-	campaigns.values = make(map[string]*Campaign)
+	campaigns.nameValues = make(map[string]*Campaign)
+	campaigns.idValues = make(map[int64]*Campaign)
 	return campaigns
 }
 
 func (cm Campaigns) AddOrReplaceCampaign(campaign *Campaign) *Campaign {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
-	cm.values[campaign.Name] = campaign
+	cm.nameValues[campaign.Name] = campaign
+	cm.idValues[campaign.Id] = campaign
 	return campaign
 }
 
@@ -50,14 +86,22 @@ func (cm Campaigns) AddOrReplaceCampaigns(campaigns []*Campaign) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	for _, campaign := range campaigns {
-		cm.values[campaign.Name] = campaign
+		cm.nameValues[campaign.Name] = campaign
+		cm.idValues[campaign.Id] = campaign
 	}
 }
 
 func (cm Campaigns) GetCampaign(name string) (*Campaign, bool) {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
-	val, exists := cm.values[name]
+	val, exists := cm.nameValues[name]
+	return val, exists
+}
+
+func (cm Campaigns) GetCampaignById(id int64) (*Campaign, bool) {
+	cm.lock.RLock()
+	defer cm.lock.RUnlock()
+	val, exists := cm.idValues[id]
 	return val, exists
 }
 
@@ -70,7 +114,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 	var campaigns []*Campaign
 	for rows.Next() {
 		var campaign Campaign
-		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.numRaised, &campaign.numBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 		if nil == err {
 			campaigns = append(campaigns, &campaign)
 		} else {
@@ -78,7 +122,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 		}
 	}
 
-	if nil != err {
+	if nil == err {
 		err = rows.Err()
 	}
 
@@ -87,7 +131,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 
 func getCampaignFromDb(name string) (Campaign, error) {
 	var campaign Campaign
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.numRaised, &campaign.numBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 	return campaign, err
 }
 

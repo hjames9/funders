@@ -234,14 +234,6 @@ func main() {
 	db = dbCredentials.GetDatabase()
 	defer db.Close()
 
-	//Get database crypto passphrase for sensitive database fields
-	dbCryptoPassphrase = os.Getenv("DB_CRYPTO_PASSPHRASE")
-	if len(dbCryptoPassphrase) > 0 {
-		log.Printf("Temporarily stored sensitive database fields will be encrypted")
-	} else {
-		log.Printf("Temporarily stored sensitive database fields will NOT be encrypted")
-	}
-
 	//Get configurable string size limits
 	stringSizeLimitStr := common.GetenvWithDefault("STRING_SIZE_LIMIT", "500")
 	stringSizeLimit, err = strconv.Atoi(stringSizeLimitStr)
@@ -337,7 +329,7 @@ func main() {
 
 	log.Printf("Creating robot detection with %#v", botDetection)
 
-	//Asynchronous database writes
+	//Asynchronous payment processing
 	asyncRequest, err = strconv.ParseBool(common.GetenvWithDefault("ASYNC_REQUEST", "false"))
 	if nil != err {
 		asyncRequest = false
@@ -362,18 +354,23 @@ func main() {
 		log.Print(err)
 	}
 
+	running = true
 	if asyncRequest {
 		waitGroup.Add(1)
-		running = true
 		payments = make(chan Payment, asyncRequestSize)
 		go batchAddPayment(time.Duration(asyncProcessInterval), dbMaxOpenConns)
 		log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
 		log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
 	}
 
+	//Update payment statuses from payment processor
+	waitGroup.Add(1)
+	go updatePaymentStatuses()
+
 	//Initialize campaigns
 	cmps, err := getCampaignsFromDb()
 	if nil != err {
+		log.Print(err)
 		log.Fatal("Could not initialize campaigns")
 	} else {
 		campaigns.AddOrReplaceCampaigns(cmps)
@@ -383,6 +380,7 @@ func main() {
 	//Initialize perks
 	prks, err := getPerksFromDb()
 	if nil != err {
+		log.Print(err)
 		log.Fatal("Could not initialize perks")
 	} else {
 		perks.AddOrReplacePerks(prks)
@@ -392,6 +390,7 @@ func main() {
 	//Initialize payments
 	pys, err := getPaymentsFromDb()
 	if nil != err {
+		log.Print(err)
 		log.Fatal("Could not initialize payments")
 	} else {
 		paymentsCache.AddOrReplacePayments(pys)

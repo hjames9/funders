@@ -57,14 +57,6 @@ COMMENT ON COLUMN payments.campaign_id IS 'Reference to campaign that the paymen
 COMMENT ON COLUMN payments.perk_id IS 'Reference to perk that the payment is associated with';
 COMMENT ON COLUMN payments.account_type IS 'The type of method used for payment';
 COMMENT ON COLUMN payments.name_on_payment IS 'The name of account owner';
-COMMENT ON COLUMN payments.bank_routing_number IS 'Bank routing number used for payment';
-COMMENT ON COLUMN payments.bank_account_number IS 'Bank account number used for payment';
-COMMENT ON COLUMN payments.credit_card_account_number IS 'Credit card account number used for payment';
-COMMENT ON COLUMN payments.credit_card_expiration_date IS 'Credit card expiration date used for payment';
-COMMENT ON COLUMN payments.credit_card_cvv IS 'Credit card security code used for payment';
-COMMENT ON COLUMN payments.credit_card_postal_code IS 'Credit card postal code used for payment';
-COMMENT ON COLUMN payments.paypal_email IS 'Paypal e-mail address used for payment';
-COMMENT ON COLUMN payments.bitcoin_address IS 'Bitcoin address used for payment';
 COMMENT ON COLUMN payments.full_name IS 'Full name used for shipping';
 COMMENT ON COLUMN payments.address1 IS 'Shipping address for perk';
 COMMENT ON COLUMN payments.address2 IS 'Optional secondary address for perk';
@@ -78,7 +70,6 @@ COMMENT ON COLUMN payments.contact_email IS 'Contact e-mail of backer';
 COMMENT ON COLUMN payments.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
 COMMENT ON COLUMN payments.advertise IS 'Whether to advertise user''s payment';
 COMMENT ON COLUMN payments.advertise_other IS 'Use alternate value to advertise user''s payment';
-COMMENT ON COLUMN payments.payment_processor_ids IS 'Transaction ids used by payment processor';
 COMMENT ON COLUMN payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN payments.created_at IS 'Timestamp of payment creation.';
 COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was updated';
@@ -86,9 +77,6 @@ COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was upd
 COMMENT ON CONSTRAINT payments_pkey ON payments IS 'Primary key constraint for payments id column';
 COMMENT ON CONSTRAINT payments_campaign_id_fkey ON payments IS 'Foreign key constraint for campaigns id column';
 COMMENT ON CONSTRAINT payments_perk_id_fkey ON payments IS 'Foreign key constraint for perks id column';
-COMMENT ON CONSTRAINT payments_check ON payments IS 'Check constraint for payments table to make sure payment method used is valid';
-COMMENT ON CONSTRAINT payments_check1 ON payments IS 'Check constraint for payments table to make sure no more than one payment method is used';
-COMMENT ON CONSTRAINT payments_check2 ON payments IS 'Check constraint for payments table to make sure at least one payment method is used';
 COMMENT ON CONSTRAINT payments_contact_email_check ON payments IS 'Check constraint for payments table to make sure contact email is valid if provided';
 
 -- Campaign backers
