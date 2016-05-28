@@ -36,6 +36,7 @@ COMMENT ON COLUMN perks.campaign_id IS 'Name of the perk';
 COMMENT ON COLUMN perks.name IS 'Name of the perk';
 COMMENT ON COLUMN perks.description IS 'Description of the perk';
 COMMENT ON COLUMN perks.price IS 'Price of the perk';
+COMMENT ON COLUMN perks.currency IS 'Currency of the perk';
 COMMENT ON COLUMN perks.available IS 'Amount of available items for this perk';
 COMMENT ON COLUMN perks.ship_date IS 'The shipping date of this perk';
 COMMENT ON COLUMN perks.active IS 'Flag for if perk is active or not';
@@ -108,8 +109,35 @@ COMMENT ON COLUMN perk_claims.campaign_name IS 'Name of the campaign associated 
 COMMENT ON COLUMN perk_claims.name IS 'Name of the perk';
 COMMENT ON COLUMN perk_claims.description IS 'Description of the perk';
 COMMENT ON COLUMN perk_claims.price IS 'Price of the perk';
+COMMENT ON COLUMN perk_claims.currency IS 'Currency of the perk';
 COMMENT ON COLUMN perk_claims.available IS 'Amount of available items for the perk';
 COMMENT ON COLUMN perk_claims.ship_date IS 'Ship date of the perk';
 COMMENT ON COLUMN perk_claims.num_claimed IS 'Number of items claimed for the perk';
 COMMENT ON COLUMN perk_claims.active IS 'Flag if perk is active or not';
+
+-- Active payments
+
+COMMENT ON VIEW active_payments IS 'Active payments is the payments table but from only active campaigns and perks';
+
+COMMENT ON RULE "_RETURN" ON active_payments IS 'Internal rule for active_payments view';
+
+COMMENT ON COLUMN active_payments.id IS 'Primary key id of the payments table';
+COMMENT ON COLUMN active_payments.campaign_id IS 'Primary key id of the campaigns table';
+COMMENT ON COLUMN active_payments.perk_id IS 'Primary key id of the perks table';
+COMMENT ON COLUMN active_payments.account_type IS 'The type of method used for payment';
+COMMENT ON COLUMN active_payments.name_on_payment IS 'The name of account owner';
+COMMENT ON COLUMN active_payments.full_name IS 'Full name used for shipping';
+COMMENT ON COLUMN active_payments.address1 IS 'Shipping address for perk';
+COMMENT ON COLUMN active_payments.address2 IS 'Optional secondary address for perk';
+COMMENT ON COLUMN active_payments.city IS 'Shipping city for perk';
+COMMENT ON COLUMN active_payments.postal_code IS 'Shipping postal code for perk';
+COMMENT ON COLUMN active_payments.country IS 'Shipping country for perk';
+COMMENT ON COLUMN active_payments.amount IS 'Amount of the payment';
+COMMENT ON COLUMN active_payments.currency IS 'Currency of the payment';
+COMMENT ON COLUMN active_payments.state IS 'Current state of the payment';
+COMMENT ON COLUMN active_payments.contact_email IS 'Contact e-mail of backer';
+COMMENT ON COLUMN active_payments.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
+COMMENT ON COLUMN active_payments.advertise IS 'Whether to advertise user''s payment';
+COMMENT ON COLUMN active_payments.advertise_other IS 'Use alternate value to advertise user''s payment';
+COMMENT ON COLUMN active_payments.payment_processor_responses IS 'Transaction responses from payment processor';
 

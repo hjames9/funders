@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hjames9/funders"
 	_ "github.com/lib/pq"
@@ -14,18 +15,19 @@ import (
 	"math"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	GET_PENDING_PAYMENTS_QUERY = "SELECT id, campaign_id, perk_id, state, payment_processor_responses FROM funders.payments WHERE state = 'pending'"
-	GET_PAYMENT_QUERY          = "SELECT id, campaign_id, perk_id, state FROM funders.payments WHERE id = $1"
-	ADD_PAYMENT_QUERY          = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
-	UPDATE_PAYMENT_QUERY       = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, state = $3 WHERE id = $4"
-	EMAIL_REGEX                = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
-	PAYMENTS_URL               = "/payments"
+	GET_PAYMENTS_QUERY   = "SELECT id, campaign_id, perk_id, state FROM funders.active_payments"
+	GET_PAYMENT_QUERY    = "SELECT id, campaign_id, perk_id, state FROM funders.active_payments WHERE id = $1"
+	ADD_PAYMENT_QUERY    = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
+	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, state = $3 WHERE id = $4"
+	EMAIL_REGEX          = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
+	PAYMENTS_URL         = "/payments"
 )
 
 type Payment struct {
@@ -56,9 +58,27 @@ type Payment struct {
 	Advertise                 bool   `form:"advertise"`
 	AdvertiseOther            string `form:"advertiseOther"`
 	PaymentProcessorResponses string
+	lock                      sync.RWMutex
 }
 
-func (payment Payment) MarshalJSON() ([]byte, error) {
+func (payment *Payment) UpdateState(state string) string {
+	payment.lock.Lock()
+	defer payment.lock.Unlock()
+	payment.State = state
+	return payment.State
+}
+
+func (payment *Payment) GetState() string {
+	payment.lock.RLock()
+	defer payment.lock.RUnlock()
+	return payment.State
+}
+
+func (payment *Payment) MarshalJSON() ([]byte, error) {
+	payment.lock.RLock()
+	state := payment.State
+	payment.lock.RUnlock()
+
 	type MyPayment Payment
 	return json.Marshal(&struct {
 		Id         string `json:"id"`
@@ -69,11 +89,11 @@ func (payment Payment) MarshalJSON() ([]byte, error) {
 		Id:         payment.Id,
 		CampaignId: payment.CampaignId,
 		PerkId:     payment.PerkId,
-		State:      payment.State,
+		State:      state,
 	})
 }
 
-func (payment Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
+func (payment *Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	errors = validateSizeLimit(payment.AccountType, "accountType", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.NameOnPayment, "nameOnPayment", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.BankRoutingNumber, "bankRoutingNumber", stringSizeLimit, errors)
@@ -130,16 +150,30 @@ func (payment Payment) Validate(errors binding.Errors, req *http.Request) bindin
 			if !perk.IsAvailable() {
 				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.Available, perk.numClaimed)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
+			} else if perk.Price != payment.Amount {
+				message := fmt.Sprintf("Payment amount (%f) does not match perk price (%f).", payment.Amount, perk.Price)
+				errors = addError(errors, []string{"amount"}, binding.TypeError, message)
+			} else if !strings.EqualFold(perk.Currency, payment.Currency) {
+				message := fmt.Sprintf("Payment currency(%s) does not match perk currency (%s).", payment.Currency, perk.Currency)
+				errors = addError(errors, []string{"currency"}, binding.TypeError, message)
 			}
 		} else {
 			message := fmt.Sprintf("Perk not found with id: %d for campaign: %d", payment.PerkId, payment.CampaignId)
-			errors = addError(errors, []string{"perkId"}, binding.RequiredError, message)
+			errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
 		}
 
-		_, exists = campaigns.GetCampaignById(payment.CampaignId)
-		if !exists {
+		campaign, exists := campaigns.GetCampaignById(payment.CampaignId)
+		if exists {
+			if campaign.HasEnded() {
+				message := fmt.Sprintf("Campaign %s with id: %d has expired on %s", campaign.Name, payment.CampaignId, campaign.EndDate)
+				errors = addError(errors, []string{"campaignId"}, binding.TypeError, message)
+			} else if !campaign.HasStarted() {
+				message := fmt.Sprintf("Campaign %s with id: %d will start on %s", campaign.Name, payment.CampaignId, campaign.StartDate)
+				errors = addError(errors, []string{"campaignId"}, binding.TypeError, message)
+			}
+		} else {
 			message := fmt.Sprintf("Campaign not found with id: %d", payment.CampaignId)
-			errors = addError(errors, []string{"campaignId"}, binding.RequiredError, message)
+			errors = addError(errors, []string{"campaignId"}, binding.TypeError, message)
 		}
 	}
 
@@ -157,14 +191,14 @@ func NewPayments() *Payments {
 	return payments
 }
 
-func (ps Payments) AddOrReplacePayment(payment *Payment) *Payment {
+func (ps *Payments) AddOrReplacePayment(payment *Payment) *Payment {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	ps.values[payment.Id] = payment
 	return payment
 }
 
-func (ps Payments) AddOrReplacePayments(payments []*Payment) {
+func (ps *Payments) AddOrReplacePayments(payments []*Payment) {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	for _, payment := range payments {
@@ -172,7 +206,7 @@ func (ps Payments) AddOrReplacePayments(payments []*Payment) {
 	}
 }
 
-func (ps Payments) GetPayment(id string) (*Payment, bool) {
+func (ps *Payments) GetPayment(id string) (*Payment, bool) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 	val, exists := ps.values[id]
@@ -291,47 +325,25 @@ func batchAddPayment(asyncProcessInterval time.Duration, dbMaxOpenConns int) {
 	}
 }
 
-func updatePaymentStatuses() {
-	log.Print("Started update payment statuses thread")
-
-	defer waitGroup.Done()
-
-	for running {
-		time.Sleep(5 * time.Second)
-
-		payments, err := getPaymentsFromDb()
-		if nil != err {
-			log.Print(err)
-			continue
-		} else if !running {
-			break
-		}
-
-		for _, payment := range payments {
-			err = getStripePaymentStatus(payment)
-			if nil == err {
-				log.Print("Updated status on payment: %#v", payment)
-			} else {
-				log.Print(err)
-			}
-		}
-	}
-}
-
-func getStripePaymentStatus(payment *Payment) error {
-	return nil
-}
-
 func makeStripePayment(payment *Payment) error {
 	stripe.Key = paymentProcessorKey
 
+	if payment.AccountType != "credit_card" {
+		return errors.New("Only credit card payments are currently supported")
+	}
+
+	layout := "2006-01-02"
+	creditCardExpirationDate, err := time.Parse(layout, payment.CreditCardExpirationDate)
+	if nil != err {
+		return err
+	}
+
 	cardParams := &stripe.CardParams{
-		Month: "12",
-		Year:  "2019",
-		//Number: "5555555555554444",
-		Number: "4000000000000002",
-		CVC:    "999",
-		Name:   "Micky Mouse",
+		Month:  strconv.Itoa(int(creditCardExpirationDate.Month())),
+		Year:   strconv.Itoa(creditCardExpirationDate.Year()),
+		Number: payment.CreditCardAccountNumber,
+		CVC:    payment.CreditCardCvv,
+		Name:   payment.NameOnPayment,
 	}
 
 	sourceParams := &stripe.SourceParams{
@@ -347,35 +359,39 @@ func makeStripePayment(payment *Payment) error {
 
 	ch, err := charge.New(chargeParams)
 	if nil == err {
-		//log.Printf("Charge: %s", ch)
+		log.Print("Successfully processed payment with processor")
+
 		jsonStr, _ := json.Marshal(ch)
-		log.Printf("JSON: %s", string(jsonStr))
+		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 
 		if ch.Paid {
-			payment.State = "success"
+			payment.UpdateState("success")
+			campaign, exists := campaigns.GetCampaignById(payment.CampaignId)
+			if exists {
+				campaign.IncrementNumRaised(payment.Amount)
+				campaign.IncrementNumBackers(1)
+			}
+
+			perk, exists := perks.GetPerk(payment.PerkId)
+			if exists {
+				perk.IncrementNumClaimed(1)
+			}
 		} else {
-			payment.State = "failure"
+			payment.UpdateState("failure")
 		}
 	} else {
-		log.Print(err)
+		log.Print("Failed processing payment with processor")
 		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
+		payment.UpdateState("failure")
 	}
 
-	_, err = db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.State, payment.Id)
+	paymentsCache.AddOrReplacePayment(payment)
+	_, err = db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.GetState(), payment.Id)
 	if nil != err {
 		log.Print(err)
+		log.Printf("Error updating payment %s with information from processor", payment.Id)
 	} else {
-		log.Print("Successfully persisted")
-		campaign, exists := campaigns.GetCampaignById(payment.CampaignId)
-		if exists {
-			campaign.IncrementNumRaised(payment.Amount)
-			campaign.IncrementNumBackers(1)
-		}
-
-		perk, exists := perks.GetPerk(payment.PerkId)
-		if exists {
-			perk.IncrementNumClaimed(1)
-		}
+		log.Printf("Successfully updated payment %s in database", payment.Id)
 	}
 
 	return err
@@ -390,9 +406,9 @@ func addPayment(payment Payment, statement *sql.Stmt) (string, error) {
 	advertiseOther := common.CreateSqlString(payment.AdvertiseOther)
 
 	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 	} else {
-		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.State, contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
+		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 	}
 
 	if nil == err {
@@ -405,18 +421,18 @@ func addPayment(payment Payment, statement *sql.Stmt) (string, error) {
 var paymentsCache = NewPayments()
 
 func getPaymentsFromDb() ([]*Payment, error) {
-	rows, err := db.Query(GET_PENDING_PAYMENTS_QUERY)
+	rows, err := db.Query(GET_PAYMENTS_QUERY)
+	if nil != err {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	var payments []*Payment
 	for rows.Next() {
 		var payment Payment
-		var paymentProcessorResponses sql.NullString
-		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.State, &paymentProcessorResponses)
+		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.State)
 		if nil == err {
-			if paymentProcessorResponses.Valid {
-				payment.PaymentProcessorResponses = paymentProcessorResponses.String
-			}
 			payments = append(payments, &payment)
 		} else {
 			break
@@ -479,8 +495,9 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 
 func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Payment) (int, string) {
 	payment.Id = uuid.NewV4().String()
-	payment.State = "pending"
+	payment.UpdateState("pending")
 
+	paymentsCache.AddOrReplacePayment(&payment)
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	res.Header().Set(LOCATION_HEADER, fmt.Sprintf("%s?id=%s", PAYMENTS_URL, payment.Id))
 

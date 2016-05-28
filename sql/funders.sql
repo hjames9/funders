@@ -35,6 +35,7 @@ CREATE TABLE perks
     name VARCHAR NOT NULL,
     description VARCHAR NOT NULL,
     price NUMERIC NOT NULL,
+    currency VARCHAR NOT NULL,
     available INT8 NOT NULL,
     ship_date DATE NOT NULL,
     active BOOLEAN NOT NULL DEFAULT(true),
@@ -103,6 +104,7 @@ SELECT perks.id,
        perks.name,
        perks.description,
        price,
+       currency,
        available,
        ship_date,
        CASE WHEN num_claimed IS NULL THEN 0 ELSE num_claimed END,
@@ -120,3 +122,32 @@ LEFT OUTER JOIN
 ON perks.campaign_id = claimed.campaign_id
     AND perks.id = claimed.perk_id
 ORDER BY campaign_id ASC;
+
+CREATE VIEW active_payments
+AS
+SELECT
+    payments.id,
+    payments.campaign_id,
+    payments.perk_id,
+    account_type,
+    name_on_payment,
+    full_name,
+    address1,
+    address2,
+    city,
+    postal_code,
+    country,
+    amount,
+    payments.currency,
+    state,
+    contact_email,
+    contact_opt_in,
+    advertise,
+    advertise_other,
+    payment_processor_responses
+FROM payments
+INNER JOIN campaigns
+ON payments.campaign_id = campaigns.id
+INNER JOIN perks
+ON payments.perk_id = perks.id
+WHERE campaigns.active = TRUE AND perks.active = TRUE;

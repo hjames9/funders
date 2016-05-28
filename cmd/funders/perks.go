@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	GET_ALL_PERKS_QUERY = "SELECT id, campaign_id, campaign_name, name, description, price, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = true"
-	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = true AND campaign_name = $1"
+	GET_ALL_PERKS_QUERY = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = TRUE"
+	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = TRUE AND campaign_name = $1"
 	PERKS_URL           = "/perks"
 )
 
@@ -24,24 +24,25 @@ type Perk struct {
 	Name         string    `json:"name"`
 	Description  string    `json:"description"`
 	Price        float64   `json:"price"`
+	Currency     string    `json:"currency"`
 	Available    int64     `json:"available"`
 	ShipDate     time.Time `json:"shipDate"`
 	numClaimed   int64
 	lock         sync.RWMutex
 }
 
-func (perk Perk) IsAvailable() bool {
+func (perk *Perk) IsAvailable() bool {
 	return perk.Available > perk.numClaimed
 }
 
-func (perk Perk) IncrementNumClaimed(amount int64) int64 {
+func (perk *Perk) IncrementNumClaimed(amount int64) int64 {
 	perk.lock.Lock()
 	defer perk.lock.Unlock()
 	perk.numClaimed += amount
 	return perk.numClaimed
 }
 
-func (perk Perk) MarshalJSON() ([]byte, error) {
+func (perk *Perk) MarshalJSON() ([]byte, error) {
 	perk.lock.RLock()
 	numClaimed := perk.numClaimed
 	perk.lock.RUnlock()
@@ -52,7 +53,7 @@ func (perk Perk) MarshalJSON() ([]byte, error) {
 		*MyPerk
 	}{
 		NumClaimed: numClaimed,
-		MyPerk:     (*MyPerk)(&perk),
+		MyPerk:     (*MyPerk)(perk),
 	})
 }
 
@@ -69,7 +70,7 @@ func NewPerks() *Perks {
 	return perks
 }
 
-func (pks Perks) AddOrReplacePerks(perks []*Perk) {
+func (pks *Perks) AddOrReplacePerks(perks []*Perk) {
 	pks.lock.Lock()
 	defer pks.lock.Unlock()
 	for _, perk := range perks {
@@ -78,14 +79,14 @@ func (pks Perks) AddOrReplacePerks(perks []*Perk) {
 	}
 }
 
-func (pks Perks) GetPerks(name string) ([]*Perk, bool) {
+func (pks *Perks) GetPerks(name string) ([]*Perk, bool) {
 	pks.lock.RLock()
 	defer pks.lock.RUnlock()
 	val, exists := pks.nameValues[name]
 	return val, exists
 }
 
-func (pks Perks) GetPerk(id int64) (*Perk, bool) {
+func (pks *Perks) GetPerk(id int64) (*Perk, bool) {
 	pks.lock.RLock()
 	defer pks.lock.RUnlock()
 	val, exists := pks.idValues[id]
@@ -109,12 +110,16 @@ func getPerksFromDb(args ...string) ([]*Perk, error) {
 		return nil, errors.New("Bad parameters used")
 	}
 
+	if nil != err {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	var perks []*Perk
 	for rows.Next() {
 		var perk Perk
-		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Available, &perk.ShipDate, &perk.numClaimed)
+		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.Available, &perk.ShipDate, &perk.numClaimed)
 		if nil == err {
 			perks = append(perks, &perk)
 		} else {

@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = true"
-	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = true AND name = $1"
+	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
+	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
 	CAMPAIGN_URL            = "/campaigns"
 )
 
@@ -29,21 +29,29 @@ type Campaign struct {
 	lock        sync.RWMutex
 }
 
-func (campaign Campaign) IncrementNumRaised(amount float64) float64 {
+func (campaign *Campaign) IncrementNumRaised(amount float64) float64 {
 	campaign.lock.Lock()
 	defer campaign.lock.Unlock()
 	campaign.numRaised += amount
 	return campaign.numRaised
 }
 
-func (campaign Campaign) IncrementNumBackers(amount int64) int64 {
+func (campaign *Campaign) IncrementNumBackers(amount int64) int64 {
 	campaign.lock.Lock()
 	defer campaign.lock.Unlock()
 	campaign.numBackers += amount
 	return campaign.numBackers
 }
 
-func (campaign Campaign) MarshalJSON() ([]byte, error) {
+func (campaign *Campaign) HasStarted() bool {
+	return time.Now().After(campaign.StartDate)
+}
+
+func (campaign *Campaign) HasEnded() bool {
+	return time.Now().After(campaign.EndDate)
+}
+
+func (campaign *Campaign) MarshalJSON() ([]byte, error) {
 	campaign.lock.RLock()
 	numRaised := campaign.numRaised
 	numBackers := campaign.numBackers
@@ -57,7 +65,7 @@ func (campaign Campaign) MarshalJSON() ([]byte, error) {
 	}{
 		NumRaised:  numRaised,
 		NumBackers: numBackers,
-		MyCampaign: (*MyCampaign)(&campaign),
+		MyCampaign: (*MyCampaign)(campaign),
 	})
 }
 
@@ -74,7 +82,7 @@ func NewCampaigns() *Campaigns {
 	return campaigns
 }
 
-func (cm Campaigns) AddOrReplaceCampaign(campaign *Campaign) *Campaign {
+func (cm *Campaigns) AddOrReplaceCampaign(campaign *Campaign) *Campaign {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	cm.nameValues[campaign.Name] = campaign
@@ -82,7 +90,7 @@ func (cm Campaigns) AddOrReplaceCampaign(campaign *Campaign) *Campaign {
 	return campaign
 }
 
-func (cm Campaigns) AddOrReplaceCampaigns(campaigns []*Campaign) {
+func (cm *Campaigns) AddOrReplaceCampaigns(campaigns []*Campaign) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	for _, campaign := range campaigns {
@@ -91,14 +99,14 @@ func (cm Campaigns) AddOrReplaceCampaigns(campaigns []*Campaign) {
 	}
 }
 
-func (cm Campaigns) GetCampaign(name string) (*Campaign, bool) {
+func (cm *Campaigns) GetCampaign(name string) (*Campaign, bool) {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
 	val, exists := cm.nameValues[name]
 	return val, exists
 }
 
-func (cm Campaigns) GetCampaignById(id int64) (*Campaign, bool) {
+func (cm *Campaigns) GetCampaignById(id int64) (*Campaign, bool) {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
 	val, exists := cm.idValues[id]
@@ -109,6 +117,10 @@ var campaigns = NewCampaigns()
 
 func getCampaignsFromDb() ([]*Campaign, error) {
 	rows, err := db.Query(GET_ALL_CAMPAIGNS_QUERY)
+	if nil != err {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	var campaigns []*Campaign

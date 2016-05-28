@@ -354,18 +354,14 @@ func main() {
 		log.Print(err)
 	}
 
-	running = true
 	if asyncRequest {
+		running = true
 		waitGroup.Add(1)
 		payments = make(chan Payment, asyncRequestSize)
 		go batchAddPayment(time.Duration(asyncProcessInterval), dbMaxOpenConns)
 		log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
 		log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
 	}
-
-	//Update payment statuses from payment processor
-	waitGroup.Add(1)
-	go updatePaymentStatuses()
 
 	//Initialize campaigns
 	cmps, err := getCampaignsFromDb()
