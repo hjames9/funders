@@ -58,6 +58,7 @@ type Payment struct {
 	Advertise                 bool   `form:"advertise"`
 	AdvertiseOther            string `form:"advertiseOther"`
 	PaymentProcessorResponses string
+	FailureReason             string
 	lock                      sync.RWMutex
 }
 
@@ -74,22 +75,38 @@ func (payment *Payment) GetState() string {
 	return payment.State
 }
 
+func (payment *Payment) UpdateFailureReason(failureReason string) string {
+	payment.lock.Lock()
+	defer payment.lock.Unlock()
+	payment.FailureReason = failureReason
+	return payment.FailureReason
+}
+
+func (payment *Payment) GetFailureReason() string {
+	payment.lock.RLock()
+	defer payment.lock.RUnlock()
+	return payment.FailureReason
+}
+
 func (payment *Payment) MarshalJSON() ([]byte, error) {
 	payment.lock.RLock()
 	state := payment.State
+	failureReason := payment.FailureReason
 	payment.lock.RUnlock()
 
 	type MyPayment Payment
 	return json.Marshal(&struct {
-		Id         string `json:"id"`
-		CampaignId int64  `json:"campaignId"`
-		PerkId     int64  `json:"perkId"`
-		State      string `json:"state"`
+		Id            string `json:"id"`
+		CampaignId    int64  `json:"campaignId"`
+		PerkId        int64  `json:"perkId"`
+		State         string `json:"state"`
+		FailureReason string `json:"failureReason,omitempty"`
 	}{
-		Id:         payment.Id,
-		CampaignId: payment.CampaignId,
-		PerkId:     payment.PerkId,
-		State:      state,
+		Id:            payment.Id,
+		CampaignId:    payment.CampaignId,
+		PerkId:        payment.PerkId,
+		State:         state,
+		FailureReason: failureReason,
 	})
 }
 
@@ -383,6 +400,20 @@ func makeStripePayment(payment *Payment) error {
 		log.Print("Failed processing payment with processor")
 		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
 		payment.UpdateState("failure")
+
+		var stripeError = struct {
+			Type    string
+			Message string
+			Code    string
+			Status  int
+		}{}
+		err = json.Unmarshal([]byte(err.Error()), &stripeError)
+		if nil == err {
+			payment.UpdateFailureReason(stripeError.Message)
+		} else {
+			log.Print(err)
+			log.Print("Error unmarshaling stripe error message")
+		}
 	}
 
 	paymentsCache.AddOrReplacePayment(payment)
