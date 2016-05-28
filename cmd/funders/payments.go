@@ -25,9 +25,10 @@ const (
 	GET_PAYMENTS_QUERY   = "SELECT id, campaign_id, perk_id, state FROM funders.active_payments"
 	GET_PAYMENT_QUERY    = "SELECT id, campaign_id, perk_id, state FROM funders.active_payments WHERE id = $1"
 	ADD_PAYMENT_QUERY    = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
-	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, state = $3 WHERE id = $4"
+	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, state = $4 WHERE id = $5"
 	EMAIL_REGEX          = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
 	PAYMENTS_URL         = "/payments"
+	STRIPE_PROCESSOR     = "stripe"
 )
 
 type Payment struct {
@@ -58,6 +59,7 @@ type Payment struct {
 	Advertise                 bool   `form:"advertise"`
 	AdvertiseOther            string `form:"advertiseOther"`
 	PaymentProcessorResponses string
+	PaymentProcessorUsed      string
 	FailureReason             string
 	lock                      sync.RWMutex
 }
@@ -349,6 +351,8 @@ func makeStripePayment(payment *Payment) error {
 		return errors.New("Only credit card payments are currently supported")
 	}
 
+	payment.PaymentProcessorUsed = STRIPE_PROCESSOR
+
 	layout := "2006-01-02"
 	creditCardExpirationDate, err := time.Parse(layout, payment.CreditCardExpirationDate)
 	if nil != err {
@@ -423,7 +427,7 @@ func makeStripePayment(payment *Payment) error {
 	}
 
 	paymentsCache.AddOrReplacePayment(payment)
-	_, err = db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.GetState(), payment.Id)
+	_, err = db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.PaymentProcessorUsed, payment.GetState(), payment.Id)
 	if nil != err {
 		log.Print(err)
 		log.Printf("Error updating payment %s with information from processor", payment.Id)

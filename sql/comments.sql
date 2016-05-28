@@ -72,6 +72,7 @@ COMMENT ON COLUMN payments.contact_opt_in IS 'Flag if user wants to opt in for f
 COMMENT ON COLUMN payments.advertise IS 'Whether to advertise user''s payment';
 COMMENT ON COLUMN payments.advertise_other IS 'Use alternate value to advertise user''s payment';
 COMMENT ON COLUMN payments.payment_processor_responses IS 'Transaction responses from payment processor';
+COMMENT ON COLUMN payments.payment_processor_used IS 'Payment processor used to process this payment';
 COMMENT ON COLUMN payments.created_at IS 'Timestamp of payment creation.';
 COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was updated';
 
@@ -140,4 +141,5 @@ COMMENT ON COLUMN active_payments.contact_opt_in IS 'Flag if user wants to opt i
 COMMENT ON COLUMN active_payments.advertise IS 'Whether to advertise user''s payment';
 COMMENT ON COLUMN active_payments.advertise_other IS 'Use alternate value to advertise user''s payment';
 COMMENT ON COLUMN active_payments.payment_processor_responses IS 'Transaction responses from payment processor';
+COMMENT ON COLUMN active_payments.payment_processor_used IS 'Payment processor used to process this payment';
 

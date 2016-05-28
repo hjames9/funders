@@ -68,6 +68,7 @@ CREATE TABLE payments
     advertise BOOLEAN NOT NULL DEFAULT(true),
     advertise_other VARCHAR NULL,
     payment_processor_responses JSONB[] NULL,
+    payment_processor_used VARCHAR NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$')
@@ -144,7 +145,8 @@ SELECT
     contact_opt_in,
     advertise,
     advertise_other,
-    payment_processor_responses
+    payment_processor_responses,
+    payment_processor_used
 FROM payments
 INNER JOIN campaigns
 ON payments.campaign_id = campaigns.id
