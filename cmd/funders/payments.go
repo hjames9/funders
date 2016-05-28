@@ -378,8 +378,13 @@ func makeStripePayment(payment *Payment) error {
 	if nil == err {
 		log.Print("Successfully processed payment with processor")
 
-		jsonStr, _ := json.Marshal(ch)
-		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
+		jsonStr, err := json.Marshal(ch)
+		if nil == err {
+			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
+		} else {
+			log.Print(err)
+			log.Printf("Unable to marshal charge response (%#v) from stripe", ch)
+		}
 
 		if ch.Paid {
 			payment.UpdateState("success")
@@ -395,6 +400,7 @@ func makeStripePayment(payment *Payment) error {
 			}
 		} else {
 			payment.UpdateState("failure")
+			payment.UpdateFailureReason(ch.FailMsg)
 		}
 	} else {
 		log.Print("Failed processing payment with processor")
