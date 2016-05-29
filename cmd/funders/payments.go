@@ -37,8 +37,6 @@ type Payment struct {
 	PerkId                    int64  `form:"perkId" binding:"required"`
 	AccountType               string `form:"accountType" binding:"required"`
 	NameOnPayment             string `form:"nameOnPayment" binding:"required"`
-	BankRoutingNumber         string `form:"bankRoutingNumber"`
-	BankAccountNumber         string `form:"bankAccountNumber"`
 	CreditCardAccountNumber   string `form:"creditCardAccountNumber"`
 	CreditCardExpirationDate  string `form:"creditCardExpirationDate"`
 	CreditCardCvv             string `form:"creditCardCvv"`
@@ -115,8 +113,6 @@ func (payment *Payment) MarshalJSON() ([]byte, error) {
 func (payment *Payment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	errors = validateSizeLimit(payment.AccountType, "accountType", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.NameOnPayment, "nameOnPayment", stringSizeLimit, errors)
-	errors = validateSizeLimit(payment.BankRoutingNumber, "bankRoutingNumber", stringSizeLimit, errors)
-	errors = validateSizeLimit(payment.BankAccountNumber, "bankAccountNumber", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.CreditCardAccountNumber, "creditCardAccountNumber", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.CreditCardExpirationDate, "creditCardExpirationDate", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.CreditCardCvv, "creditCardCvv", stringSizeLimit, errors)
@@ -140,10 +136,6 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 
 		if payment.AccountType == "credit_card" && (len(payment.CreditCardAccountNumber) == 0 || len(payment.CreditCardExpirationDate) == 0 || len(payment.CreditCardCvv) == 0 || len(payment.CreditCardPostalCode) == 0) {
 			errors = addError(errors, []string{"accountType", "creditCardAccountNumber", "creditCardExpirationDate", "creditCardCvv", "creditCardPostalCode"}, binding.RequiredError, "Credit card account number, expiration date, cvv and postal code required with credit_card account type")
-		}
-
-		if payment.AccountType == "bank_ach" && (len(payment.BankRoutingNumber) == 0 || len(payment.BankAccountNumber) == 0) {
-			errors = addError(errors, []string{"accountType", "bankRoutingNumber", "bankAccountNumber"}, binding.RequiredError, "Bank routing number and account number required with bank_ach account type")
 		}
 
 		if payment.AccountType == "paypal" && (len(payment.PaypalEmail) == 0) {

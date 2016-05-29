@@ -4,7 +4,7 @@ CREATE SCHEMA IF NOT EXISTS funders;
 
 SET search_path TO funders,public;
 
-CREATE TYPE account_type AS ENUM('credit_card', 'bank_ach', 'paypal', 'bitcoin');
+CREATE TYPE account_type AS ENUM('credit_card', 'paypal', 'bitcoin');
 
 CREATE TYPE payment_state AS ENUM('success', 'failure', 'pending');
 
