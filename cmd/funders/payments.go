@@ -33,26 +33,26 @@ const (
 
 type Payment struct {
 	Id                        string
-	CampaignId                int64   `form:"campaignId" binding:"required"`
-	PerkId                    int64   `form:"perkId" binding:"required"`
-	AccountType               string  `form:"accountType" binding:"required"`
-	NameOnPayment             string  `form:"nameOnPayment" binding:"required"`
-	BankRoutingNumber         string  `form:"bankRoutingNumber"`
-	BankAccountNumber         string  `form:"bankAccountNumber"`
-	CreditCardAccountNumber   string  `form:"creditCardAccountNumber"`
-	CreditCardExpirationDate  string  `form:"creditCardExpirationDate"`
-	CreditCardCvv             string  `form:"creditCardCvv"`
-	CreditCardPostalCode      string  `form:"creditCardPostalCode"`
-	PaypalEmail               string  `form:"paypalEmail"`
-	BitcoinAddress            string  `form:"bitcoinAddress"`
-	FullName                  string  `form:"fullName" binding:"required"`
-	Address1                  string  `form:"address1" "binding:"required"`
-	Address2                  string  `form:"address2"`
-	City                      string  `form:"city" binding:"required"`
-	PostalCode                string  `form:"postalCode" binding:"required"`
-	Country                   string  `form:"country" "binding:"required"`
-	Amount                    float64 `form:"amount" binding:"required"`
-	Currency                  string  `form:"currency" binding:"required"`
+	CampaignId                int64  `form:"campaignId" binding:"required"`
+	PerkId                    int64  `form:"perkId" binding:"required"`
+	AccountType               string `form:"accountType" binding:"required"`
+	NameOnPayment             string `form:"nameOnPayment" binding:"required"`
+	BankRoutingNumber         string `form:"bankRoutingNumber"`
+	BankAccountNumber         string `form:"bankAccountNumber"`
+	CreditCardAccountNumber   string `form:"creditCardAccountNumber"`
+	CreditCardExpirationDate  string `form:"creditCardExpirationDate"`
+	CreditCardCvv             string `form:"creditCardCvv"`
+	CreditCardPostalCode      string `form:"creditCardPostalCode"`
+	PaypalEmail               string `form:"paypalEmail"`
+	BitcoinAddress            string `form:"bitcoinAddress"`
+	FullName                  string `form:"fullName" binding:"required"`
+	Address1                  string `form:"address1" "binding:"required"`
+	Address2                  string `form:"address2"`
+	City                      string `form:"city" binding:"required"`
+	PostalCode                string `form:"postalCode" binding:"required"`
+	Country                   string `form:"country" "binding:"required"`
+	Amount                    float64
+	Currency                  string
 	State                     string
 	ContactEmail              string `form:"contactEmail"`
 	ContactOptIn              bool   `form:"contactOptIn"`
@@ -169,12 +169,9 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 			if !perk.IsAvailable() {
 				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.Available, perk.NumClaimed)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
-			} else if perk.Price != payment.Amount {
-				message := fmt.Sprintf("Payment amount (%f) does not match perk price (%f).", payment.Amount, perk.Price)
-				errors = addError(errors, []string{"amount"}, binding.TypeError, message)
-			} else if !strings.EqualFold(perk.Currency, payment.Currency) {
-				message := fmt.Sprintf("Payment currency(%s) does not match perk currency (%s).", payment.Currency, perk.Currency)
-				errors = addError(errors, []string{"currency"}, binding.TypeError, message)
+			} else {
+				payment.Amount = perk.Price
+				payment.Currency = perk.Currency
 			}
 		} else {
 			message := fmt.Sprintf("Perk not found with id: %d for campaign: %d", payment.PerkId, payment.CampaignId)
@@ -394,8 +391,8 @@ func makeStripePayment(payment *Payment) error {
 	}
 
 	chargeParams := &stripe.ChargeParams{
-		Amount:    uint64(payment.Amount * 100), //Value is in cents
-		Currency:  stripe.Currency(payment.Currency),
+		Amount:    uint64(perk.Price * 100), //Value is in cents
+		Currency:  stripe.Currency(perk.Currency),
 		Desc:      fmt.Sprintf("Payment id %d on charge for perk %d of campaign %d.", payment.Id, payment.PerkId, payment.CampaignId),
 		Email:     payment.ContactEmail,
 		Statement: fmt.Sprintf("Campaign(%s)", campaign.Name),
