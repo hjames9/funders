@@ -17,14 +17,13 @@ import (
 
 const (
 	ADD_CAMPAIGN_QUERY    = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
-	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, currency, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id"
 	RM_CAMPAIGN_QUERY     = "DELETE FROM funders.campaigns WHERE name = $1"
 	RM_PERK_QUERY         = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
 	UPDATE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET updated_at = $1, ? WHERE name = ?"
 	UPDATE_PERK_QUERY     = "UPDATE funders.perks SET updated_at = $1, ? WHERE name = ? AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = ?)"
 	ACTIVE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET updated_at = $1, active = $2 WHERE name = $3"
 	ACTIVE_PERK_QUERY     = "UPDATE funders.perks SET updated_at = $1, active = $2 WHERE name = $3 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $4)"
-	TIME_LAYOUT           = "2006-01-02"
 )
 
 func getCampaignFromCommandLine() (common.Campaign, error) {
@@ -53,11 +52,11 @@ func getCampaignFromCommandLine() (common.Campaign, error) {
 
 	fmt.Print("Enter campaign start date (e.g. 2016-09-04): ")
 	startDateStr, err = reader.ReadString('\n')
-	campaign.StartDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(startDateStr))
+	campaign.StartDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(startDateStr))
 
 	fmt.Print("Enter campaign end date (e.g. 2016-09-04): ")
 	endDateStr, err = reader.ReadString('\n')
-	campaign.EndDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(endDateStr))
+	campaign.EndDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(endDateStr))
 
 	fmt.Print("Enter campaign flexibility (e.g. true): ")
 	flexibleStr, err = reader.ReadString('\n')
@@ -93,13 +92,17 @@ func getPerkFromCommandLine() (common.Perk, error) {
 	priceStr, err = reader.ReadString('\n')
 	perk.Price, err = strconv.ParseFloat(strings.TrimSpace(priceStr), 64)
 
+	fmt.Print("Enter perk currency: ")
+	perk.Currency, err = reader.ReadString('\n')
+	perk.Currency = strings.TrimSpace(perk.Currency)
+
 	fmt.Print("Enter perk available: ")
 	availableStr, err = reader.ReadString('\n')
 	perk.Available, err = strconv.ParseInt(strings.TrimSpace(availableStr), 10, 64)
 
 	fmt.Print("Enter perk ship date (e.g. 2016-09-04): ")
 	shipDateStr, err = reader.ReadString('\n')
-	perk.ShipDate, err = time.Parse(TIME_LAYOUT, strings.TrimSpace(shipDateStr))
+	perk.ShipDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(shipDateStr))
 
 	return perk, err
 }
@@ -110,7 +113,7 @@ func addCampaignToDatabase(db *sql.DB, campaign *common.Campaign) (int64, error)
 }
 
 func addPerkToDatabase(db *sql.DB, perk *common.Perk) (int64, error) {
-	err := db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Available, perk.ShipDate, time.Now(), time.Now()).Scan(&perk.Id)
+	err := db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Currency, perk.Available, perk.ShipDate, time.Now(), time.Now()).Scan(&perk.Id)
 	return perk.Id, err
 }
 

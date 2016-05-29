@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hjames9/funders"
 	"log"
 	"net/http"
 	"sync"
-	"time"
 )
 
 const (
@@ -17,35 +17,23 @@ const (
 	PERKS_URL           = "/perks"
 )
 
-type Perk struct {
-	Id           int64     `json:"id"`
-	CampaignId   int64     `json:"campaignId"`
-	CampaignName string    `json:"campaignName"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Price        float64   `json:"price"`
-	Currency     string    `json:"currency"`
-	Available    int64     `json:"available"`
-	ShipDate     time.Time `json:"shipDate"`
-	numClaimed   int64
-	lock         sync.RWMutex
-}
+type Perk common.Perk
 
 func (perk *Perk) IsAvailable() bool {
-	return perk.Available > perk.numClaimed
+	return perk.Available > perk.NumClaimed
 }
 
 func (perk *Perk) IncrementNumClaimed(amount int64) int64 {
-	perk.lock.Lock()
-	defer perk.lock.Unlock()
-	perk.numClaimed += amount
-	return perk.numClaimed
+	perk.Lock.Lock()
+	defer perk.Lock.Unlock()
+	perk.NumClaimed += amount
+	return perk.NumClaimed
 }
 
 func (perk *Perk) MarshalJSON() ([]byte, error) {
-	perk.lock.RLock()
-	numClaimed := perk.numClaimed
-	perk.lock.RUnlock()
+	perk.Lock.RLock()
+	numClaimed := perk.NumClaimed
+	perk.Lock.RUnlock()
 
 	type MyPerk Perk
 	return json.Marshal(&struct {
@@ -119,7 +107,7 @@ func getPerksFromDb(args ...string) ([]*Perk, error) {
 	var perks []*Perk
 	for rows.Next() {
 		var perk Perk
-		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.Available, &perk.ShipDate, &perk.numClaimed)
+		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.Available, &perk.ShipDate, &perk.NumClaimed)
 		if nil == err {
 			perks = append(perks, &perk)
 		} else {

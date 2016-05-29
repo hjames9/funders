@@ -167,7 +167,7 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 		perk, exists := perks.GetPerk(payment.PerkId)
 		if exists {
 			if !perk.IsAvailable() {
-				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.Available, perk.numClaimed)
+				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.Available, perk.NumClaimed)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
 			} else if perk.Price != payment.Amount {
 				message := fmt.Sprintf("Payment amount (%f) does not match perk price (%f).", payment.Amount, perk.Price)
@@ -353,8 +353,7 @@ func makeStripePayment(payment *Payment) error {
 
 	payment.PaymentProcessorUsed = STRIPE_PROCESSOR
 
-	layout := "2006-01-02"
-	creditCardExpirationDate, err := time.Parse(layout, payment.CreditCardExpirationDate)
+	creditCardExpirationDate, err := time.Parse(common.TIME_LAYOUT, payment.CreditCardExpirationDate)
 	if nil != err {
 		return err
 	}

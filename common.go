@@ -3,11 +3,41 @@ package common
 import (
 	"database/sql"
 	"os"
+	"sync"
+	"time"
 )
 
 const (
-	DB_DRIVER = "postgres"
+	DB_DRIVER   = "postgres"
+	TIME_LAYOUT = "2006-01-02"
 )
+
+type Campaign struct {
+	Id          int64        `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Goal        float64      `json:"goal"`
+	NumRaised   float64      `json:"-"`
+	NumBackers  int64        `json:"-"`
+	StartDate   time.Time    `json:"startDate"`
+	EndDate     time.Time    `json:"endDate"`
+	Flexible    bool         `json:"flexible"`
+	Lock        sync.RWMutex `json:"-"`
+}
+
+type Perk struct {
+	Id           int64        `json:"id"`
+	CampaignId   int64        `json:"campaignId"`
+	CampaignName string       `json:"campaignName"`
+	Name         string       `json:"name"`
+	Description  string       `json:"description"`
+	Price        float64      `json:"price"`
+	Currency     string       `json:"currency"`
+	Available    int64        `json:"available"`
+	ShipDate     time.Time    `json:"shipDate"`
+	NumClaimed   int64        `json:"-"`
+	Lock         sync.RWMutex `json:"-"`
+}
 
 func GetenvWithDefault(envKey string, defaultVal string) string {
 	envVal := os.Getenv(envKey)

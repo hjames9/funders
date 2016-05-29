@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/hjames9/funders"
 	"log"
 	"net/http"
 	"sync"
@@ -16,31 +17,20 @@ const (
 	CAMPAIGN_URL            = "/campaigns"
 )
 
-type Campaign struct {
-	Id          int64   `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Goal        float64 `json:"goal"`
-	numRaised   float64
-	numBackers  int64
-	StartDate   time.Time `json:"startDate"`
-	EndDate     time.Time `json:"endDate"`
-	Flexible    bool      `json:"flexible"`
-	lock        sync.RWMutex
-}
+type Campaign common.Campaign
 
 func (campaign *Campaign) IncrementNumRaised(amount float64) float64 {
-	campaign.lock.Lock()
-	defer campaign.lock.Unlock()
-	campaign.numRaised += amount
-	return campaign.numRaised
+	campaign.Lock.Lock()
+	defer campaign.Lock.Unlock()
+	campaign.NumRaised += amount
+	return campaign.NumRaised
 }
 
 func (campaign *Campaign) IncrementNumBackers(amount int64) int64 {
-	campaign.lock.Lock()
-	defer campaign.lock.Unlock()
-	campaign.numBackers += amount
-	return campaign.numBackers
+	campaign.Lock.Lock()
+	defer campaign.Lock.Unlock()
+	campaign.NumBackers += amount
+	return campaign.NumBackers
 }
 
 func (campaign *Campaign) HasStarted() bool {
@@ -52,10 +42,10 @@ func (campaign *Campaign) HasEnded() bool {
 }
 
 func (campaign *Campaign) MarshalJSON() ([]byte, error) {
-	campaign.lock.RLock()
-	numRaised := campaign.numRaised
-	numBackers := campaign.numBackers
-	campaign.lock.RUnlock()
+	campaign.Lock.RLock()
+	numRaised := campaign.NumRaised
+	numBackers := campaign.NumBackers
+	campaign.Lock.RUnlock()
 
 	type MyCampaign Campaign
 	return json.Marshal(&struct {
@@ -126,7 +116,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 	var campaigns []*Campaign
 	for rows.Next() {
 		var campaign Campaign
-		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.numRaised, &campaign.numBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 		if nil == err {
 			campaigns = append(campaigns, &campaign)
 		} else {
@@ -143,7 +133,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 
 func getCampaignFromDb(name string) (Campaign, error) {
 	var campaign Campaign
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.numRaised, &campaign.numBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 	return campaign, err
 }
 
