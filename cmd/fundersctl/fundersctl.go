@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/hjames9/funders"
@@ -36,31 +37,53 @@ func getCampaignFromCommandLine() (common.Campaign, error) {
 		flexibleStr  string
 	)
 
-	reader := bufio.NewReader(os.Stdin)
+	for {
+		reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Enter campaign name (single word): ")
-	campaign.Name, err = reader.ReadString('\n')
-	campaign.Name = strings.TrimSpace(campaign.Name)
+		fmt.Print("Enter campaign name (single word): ")
+		campaign.Name, err = reader.ReadString('\n')
+		campaign.Name = strings.TrimSpace(campaign.Name)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter campaign description: ")
-	campaign.Description, err = reader.ReadString('\n')
-	campaign.Description = strings.TrimSpace(campaign.Description)
+		fmt.Print("Enter campaign description: ")
+		campaign.Description, err = reader.ReadString('\n')
+		campaign.Description = strings.TrimSpace(campaign.Description)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter campaign goal (numeric value): ")
-	goalStr, err = reader.ReadString('\n')
-	campaign.Goal, err = strconv.ParseFloat(strings.TrimSpace(goalStr), 64)
+		fmt.Print("Enter campaign goal (numeric value): ")
+		goalStr, err = reader.ReadString('\n')
+		campaign.Goal, err = strconv.ParseFloat(strings.TrimSpace(goalStr), 64)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter campaign start date (e.g. 2016-09-04): ")
-	startDateStr, err = reader.ReadString('\n')
-	campaign.StartDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(startDateStr))
+		fmt.Print("Enter campaign start date (e.g. 2016-09-04): ")
+		startDateStr, err = reader.ReadString('\n')
+		campaign.StartDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(startDateStr))
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter campaign end date (e.g. 2016-09-04): ")
-	endDateStr, err = reader.ReadString('\n')
-	campaign.EndDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(endDateStr))
+		fmt.Print("Enter campaign end date (e.g. 2016-09-04): ")
+		endDateStr, err = reader.ReadString('\n')
+		campaign.EndDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(endDateStr))
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter campaign flexibility (e.g. true): ")
-	flexibleStr, err = reader.ReadString('\n')
-	campaign.Flexible, err = strconv.ParseBool(strings.TrimSpace(flexibleStr))
+		fmt.Print("Enter campaign flexibility (e.g. true): ")
+		flexibleStr, err = reader.ReadString('\n')
+		campaign.Flexible, err = strconv.ParseBool(strings.TrimSpace(flexibleStr))
+		if nil != err {
+			break
+		}
+
+		break
+	}
 
 	return campaign, err
 }
@@ -74,35 +97,60 @@ func getPerkFromCommandLine() (common.Perk, error) {
 		shipDateStr  string
 	)
 
-	reader := bufio.NewReader(os.Stdin)
+	for {
+		reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Enter campaign name (single word): ")
-	perk.CampaignName, err = reader.ReadString('\n')
-	perk.CampaignName = strings.TrimSpace(perk.CampaignName)
+		fmt.Print("Enter campaign name (single word): ")
+		perk.CampaignName, err = reader.ReadString('\n')
+		perk.CampaignName = strings.TrimSpace(perk.CampaignName)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk name: ")
-	perk.Name, err = reader.ReadString('\n')
-	perk.Name = strings.TrimSpace(perk.Name)
+		fmt.Print("Enter perk name: ")
+		perk.Name, err = reader.ReadString('\n')
+		perk.Name = strings.TrimSpace(perk.Name)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk description: ")
-	perk.Description, err = reader.ReadString('\n')
-	perk.Description = strings.TrimSpace(perk.Description)
+		fmt.Print("Enter perk description: ")
+		perk.Description, err = reader.ReadString('\n')
+		perk.Description = strings.TrimSpace(perk.Description)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk price: ")
-	priceStr, err = reader.ReadString('\n')
-	perk.Price, err = strconv.ParseFloat(strings.TrimSpace(priceStr), 64)
+		fmt.Print("Enter perk price: ")
+		priceStr, err = reader.ReadString('\n')
+		perk.Price, err = strconv.ParseFloat(strings.TrimSpace(priceStr), 64)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk currency: ")
-	perk.Currency, err = reader.ReadString('\n')
-	perk.Currency = strings.TrimSpace(perk.Currency)
+		fmt.Print("Enter perk currency: ")
+		perk.Currency, err = reader.ReadString('\n')
+		perk.Currency = strings.TrimSpace(perk.Currency)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk available: ")
-	availableStr, err = reader.ReadString('\n')
-	perk.Available, err = strconv.ParseInt(strings.TrimSpace(availableStr), 10, 64)
+		fmt.Print("Enter perk available: ")
+		availableStr, err = reader.ReadString('\n')
+		perk.Available, err = strconv.ParseInt(strings.TrimSpace(availableStr), 10, 64)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk ship date (e.g. 2016-09-04): ")
-	shipDateStr, err = reader.ReadString('\n')
-	perk.ShipDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(shipDateStr))
+		fmt.Print("Enter perk ship date (e.g. 2016-09-04): ")
+		shipDateStr, err = reader.ReadString('\n')
+		perk.ShipDate, err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(shipDateStr))
+		if nil != err {
+			break
+		}
+
+		break
+	}
 
 	return perk, err
 }
@@ -128,32 +176,185 @@ func getCampaignNameFromCommandLine() (string, error) {
 }
 
 func getPerkAndCampaignNameFromCommandLine() (string, string, error) {
-	reader := bufio.NewReader(os.Stdin)
+	var (
+		campaignName string
+		perkName     string
+		err          error
+	)
+	for {
+		reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Enter campaign name: ")
-	campaignName, err := reader.ReadString('\n')
-	campaignName = strings.TrimSpace(campaignName)
+		fmt.Print("Enter campaign name: ")
+		campaignName, err = reader.ReadString('\n')
+		campaignName = strings.TrimSpace(campaignName)
+		if nil != err {
+			break
+		}
 
-	fmt.Print("Enter perk name: ")
-	perkName, err := reader.ReadString('\n')
-	perkName = strings.TrimSpace(perkName)
+		fmt.Print("Enter perk name: ")
+		perkName, err = reader.ReadString('\n')
+		perkName = strings.TrimSpace(perkName)
+
+		break
+	}
 
 	return campaignName, perkName, err
 }
 
+func getCampaignFieldsFromCommandLine() (map[string]interface{}, error) {
+	var (
+		campaignFieldName  string
+		campaignFieldValue string
+		continueQuestion   string
+		err                error
+	)
+	campaignFieldNames := make(map[string]interface{})
+
+	for {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Enter campaign field name (name, description, goal, start_date, end_date, flexible): ")
+		campaignFieldName, err = reader.ReadString('\n')
+		campaignFieldName = strings.TrimSpace(campaignFieldName)
+		if nil != err {
+			break
+		}
+
+		fmt.Print("Enter new field value: ")
+		campaignFieldValue, err = reader.ReadString('\n')
+		if nil != err {
+			break
+		}
+
+		switch campaignFieldName {
+		case "name":
+			fallthrough
+		case "description":
+			campaignFieldNames[campaignFieldName] = strings.TrimSpace(campaignFieldValue)
+		case "goal":
+			campaignFieldNames[campaignFieldName], err = strconv.ParseFloat(strings.TrimSpace(campaignFieldValue), 64)
+		case "start_date":
+			fallthrough
+		case "end_date":
+			campaignFieldNames[campaignFieldName], err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(campaignFieldValue))
+		case "flexible":
+			campaignFieldNames[campaignFieldName], err = strconv.ParseBool(strings.TrimSpace(campaignFieldValue))
+		default:
+			err = errors.New("Invalid field name specified")
+		}
+
+		if nil != err {
+			break
+		}
+
+		fmt.Print("Continue? (Y/N): ")
+		continueQuestion, err = reader.ReadString('\n')
+		continueQuestion = strings.TrimSpace(continueQuestion)
+		if nil != err || strings.EqualFold(continueQuestion, "N") {
+			break
+		}
+	}
+
+	return campaignFieldNames, err
+}
+
+func getPerkFieldsFromCommandLine() (map[string]interface{}, error) {
+	var (
+		perkFieldName    string
+		perkFieldValue   string
+		continueQuestion string
+		err              error
+	)
+	perkFieldNames := make(map[string]interface{})
+
+	for {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Enter perk field name (name, description, price, currency, available, ship_date): ")
+		perkFieldName, err = reader.ReadString('\n')
+		perkFieldName = strings.TrimSpace(perkFieldName)
+		if nil != err {
+			break
+		}
+
+		fmt.Print("Enter new field value: ")
+		perkFieldValue, err = reader.ReadString('\n')
+		if nil != err {
+			break
+		}
+
+		switch perkFieldName {
+		case "name":
+			fallthrough
+		case "description":
+			fallthrough
+		case "currency":
+			perkFieldNames[perkFieldName] = strings.TrimSpace(perkFieldValue)
+			break
+		case "price":
+			perkFieldNames[perkFieldName], err = strconv.ParseFloat(strings.TrimSpace(perkFieldValue), 64)
+			break
+		case "available":
+			perkFieldNames[perkFieldName], err = strconv.ParseInt(strings.TrimSpace(perkFieldValue), 10, 64)
+			break
+		case "ship_date":
+			perkFieldNames[perkFieldName], err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(perkFieldValue))
+			break
+		default:
+			err = errors.New("Invalid field name specified")
+			break
+		}
+
+		if nil != err {
+			break
+		}
+
+		fmt.Print("Continue? (Y/N): ")
+		continueQuestion, err = reader.ReadString('\n')
+		continueQuestion = strings.TrimSpace(continueQuestion)
+		if nil != err || strings.EqualFold(continueQuestion, "N") {
+			break
+		}
+	}
+
+	return perkFieldNames, err
+}
+
 func removeCampaignFromDatabase(db *sql.DB, campaignName string) error {
-	_, err := db.Exec(RM_CAMPAIGN_QUERY, campaignName)
+	var (
+		err    error
+		result sql.Result
+	)
+
+	result, err = db.Exec(RM_CAMPAIGN_QUERY, campaignName)
+	if nil == err {
+		var rowsAffected int64
+		rowsAffected, err = result.RowsAffected()
+		if nil != err || rowsAffected <= 0 {
+			err = errors.New(fmt.Sprintf("Campaign name %s not found", campaignName))
+		}
+	}
 	return err
 }
 
 func removePerkFromDatabase(db *sql.DB, campaignName string, perkName string) error {
-	_, err := db.Exec(RM_PERK_QUERY, perkName, campaignName)
+	var (
+		err    error
+		result sql.Result
+	)
+
+	result, err = db.Exec(RM_PERK_QUERY, perkName, campaignName)
+	if nil == err {
+		var rowsAffected int64
+		rowsAffected, err = result.RowsAffected()
+		if nil != err || rowsAffected <= 0 {
+			err = errors.New(fmt.Sprintf("Perk name %s not found for campaign %s", perkName, campaignName))
+		}
+	}
 	return err
 }
 
 func createUpdateQueryString(templateQuery string, values map[string]interface{}) (string, []interface{}) {
 	var buffer bytes.Buffer
-	counter := 0
+	counter := 1
 
 	parameters := make([]interface{}, 0, len(values))
 
@@ -163,33 +364,93 @@ func createUpdateQueryString(templateQuery string, values map[string]interface{}
 		parameters = append(parameters, value)
 	}
 
-	buffer.Truncate(buffer.Len() - 1)
+	buffer.Truncate(buffer.Len() - 2)
 
 	newQuery := strings.Replace(templateQuery, "?", buffer.String(), 1)
-	newQuery = strings.Replace(newQuery, "?", fmt.Sprintf("$%d", counter), 1)
+	newQuery = strings.Replace(newQuery, "?", fmt.Sprintf("$%d", counter+1), 1)
+
+	//Handle perks update query with extra parameter for campaign name
+	if strings.Contains(newQuery, "?") {
+		newQuery = strings.Replace(newQuery, "?", fmt.Sprintf("$%d", counter+2), 1)
+	}
 
 	return newQuery, parameters
 }
 
 func updateCampaignFromDatabase(db *sql.DB, values map[string]interface{}, campaignName string) error {
+	var (
+		err    error
+		result sql.Result
+	)
+
 	campaignQuery, parameters := createUpdateQueryString(UPDATE_CAMPAIGN_QUERY, values)
-	_, err := db.Exec(campaignQuery, time.Now(), parameters, campaignName)
+	parameters = append([]interface{}{time.Now()}, parameters...)
+	parameters = append(parameters, campaignName)
+
+	result, err = db.Exec(campaignQuery, parameters...)
+	if nil == err {
+		var rowsAffected int64
+		rowsAffected, err = result.RowsAffected()
+		if nil != err || rowsAffected <= 0 {
+			err = errors.New(fmt.Sprintf("Campaign name %s not found", campaignName))
+		}
+	}
 	return err
 }
 
 func updatePerkFromDatabase(db *sql.DB, values map[string]interface{}, campaignName string, perkName string) error {
+	var (
+		err    error
+		result sql.Result
+	)
+
 	perkQuery, parameters := createUpdateQueryString(UPDATE_PERK_QUERY, values)
-	_, err := db.Exec(perkQuery, time.Now(), parameters, perkName, campaignName)
+	parameters = append([]interface{}{time.Now()}, parameters...)
+	parameters = append(parameters, perkName)
+	parameters = append(parameters, campaignName)
+
+	result, err = db.Exec(perkQuery, parameters...)
+	if nil == err {
+		var rowsAffected int64
+		rowsAffected, err = result.RowsAffected()
+		if nil != err || rowsAffected <= 0 {
+			err = errors.New(fmt.Sprintf("Perk name %s not found for campaign %s", perkName, campaignName))
+		}
+	}
 	return err
 }
 
 func flipActivationForCampaign(db *sql.DB, campaignName string, active bool) error {
-	_, err := db.Exec(ACTIVE_CAMPAIGN_QUERY, time.Now(), active, campaignName)
+	var (
+		err    error
+		result sql.Result
+	)
+
+	result, err = db.Exec(ACTIVE_CAMPAIGN_QUERY, time.Now(), active, campaignName)
+	if nil == err {
+		var rowsAffected int64
+		rowsAffected, err = result.RowsAffected()
+		if nil != err || rowsAffected <= 0 {
+			err = errors.New(fmt.Sprintf("Campaign name %s not found", campaignName))
+		}
+	}
 	return err
 }
 
 func flipActivationForPerk(db *sql.DB, campaignName string, perkName string, active bool) error {
-	_, err := db.Exec(ACTIVE_PERK_QUERY, time.Now(), active, perkName, campaignName)
+	var (
+		err    error
+		result sql.Result
+	)
+
+	result, err = db.Exec(ACTIVE_PERK_QUERY, time.Now(), active, perkName, campaignName)
+	if nil == err {
+		var rowsAffected int64
+		rowsAffected, err = result.RowsAffected()
+		if nil != err || rowsAffected <= 0 {
+			err = errors.New(fmt.Sprintf("Perk name %s not found for campaign %s", perkName, campaignName))
+		}
+	}
 	return err
 }
 
@@ -282,6 +543,8 @@ func main() {
 			err := removeCampaignFromDatabase(db, campaignName)
 			if nil != err {
 				log.Fatal(err)
+			} else {
+				log.Printf("Removed campaign %s", campaignName)
 			}
 		}
 	} else if *rmPerkFlag {
@@ -293,23 +556,98 @@ func main() {
 			err := removePerkFromDatabase(db, campaignName, perkName)
 			if nil != err {
 				log.Fatal(err)
+			} else {
+				log.Printf("Removed perk %s for campaign %s", perkName, campaignName)
 			}
 		}
 	} else if *updateCampaignFlag {
 		log.Print("Update campaign")
+		campaignName, err := getCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			campaignFieldNames, err := getCampaignFieldsFromCommandLine()
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				err = updateCampaignFromDatabase(db, campaignFieldNames, campaignName)
+				if nil != err {
+					log.Fatal(err)
+				} else {
+					log.Printf("Successfully updated campaign %s", campaignName)
+				}
+			}
+		}
 	} else if *updatePerkFlag {
 		log.Print("Update perk")
+		campaignName, perkName, err := getPerkAndCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			perkFieldNames, err := getPerkFieldsFromCommandLine()
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				err = updatePerkFromDatabase(db, perkFieldNames, campaignName, perkName)
+				if nil != err {
+					log.Fatal(err)
+				} else {
+					log.Printf("Successfully updated perk %s for campaign %s", perkName, campaignName)
+				}
+			}
+		}
 	} else if *activateCampaignFlag {
-		//log.Printf("Activate campaign %s", campaignName)
-		//err := flipActivationForCampaign(db, campaignName, true)
+		log.Print("Activating campaign")
+		campaignName, err := getCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			err := flipActivationForCampaign(db, campaignName, true)
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				log.Printf("Activated campaign %s", campaignName)
+			}
+		}
 	} else if *deactivateCampaignFlag {
-		//log.Printf("Deactivate campaign %s", campaignName)
-		//err := flipActivationForCampaign(db, campaignName, false)
+		log.Print("Deactivating campaign")
+		campaignName, err := getCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			err := flipActivationForCampaign(db, campaignName, false)
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				log.Printf("Deactivated campaign %s", campaignName)
+			}
+		}
 	} else if *activatePerkFlag {
-		//log.Printf("Activate campaign %s", campaignName)
-		//err := flipActivationForPerk(db, campaignName, true)
+		log.Print("Activating perk")
+		campaignName, perkName, err := getPerkAndCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			err := flipActivationForPerk(db, campaignName, perkName, true)
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				log.Printf("Activated perk %s on campaign %s", perkName, campaignName)
+			}
+		}
 	} else if *deactivatePerkFlag {
-		//err := flipActivationForPerk(db, campaignName, false)
+		log.Print("Deactivating perk")
+		campaignName, perkName, err := getPerkAndCampaignNameFromCommandLine()
+		if nil != err {
+			log.Fatal(err)
+		} else {
+			err := flipActivationForPerk(db, campaignName, perkName, false)
+			if nil != err {
+				log.Fatal(err)
+			} else {
+				log.Printf("Deactivated perk %s on campaign %s", perkName, campaignName)
+			}
+		}
 	} else {
 		flag.Usage()
 	}

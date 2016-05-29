@@ -31,7 +31,7 @@ CREATE UNIQUE INDEX c_name_idx ON campaigns(name);
 CREATE TABLE perks
 (
     id SERIAL8 NOT NULL PRIMARY KEY,
-    campaign_id INT8 NOT NULL REFERENCES campaigns (id),
+    campaign_id INT8 NOT NULL REFERENCES campaigns (id) ON DELETE CASCADE,
     name VARCHAR NOT NULL,
     description VARCHAR NOT NULL,
     price NUMERIC NOT NULL,
@@ -50,8 +50,8 @@ CREATE UNIQUE INDEX p_name_idx ON perks(name, campaign_id);
 CREATE TABLE payments
 (
     id UUID NOT NULL PRIMARY KEY,
-    campaign_id INT8 NOT NULL REFERENCES campaigns (id),
-    perk_id INT8 NOT NULL REFERENCES perks (id),
+    campaign_id INT8 NOT NULL REFERENCES campaigns (id) ON DELETE CASCADE,
+    perk_id INT8 NOT NULL REFERENCES perks (id) ON DELETE CASCADE,
     account_type ACCOUNT_TYPE NOT NULL,
     name_on_payment VARCHAR NOT NULL,
     full_name VARCHAR NOT NULL,

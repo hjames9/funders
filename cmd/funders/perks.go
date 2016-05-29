@@ -62,7 +62,10 @@ func (pks *Perks) AddOrReplacePerks(perks []*Perk) {
 	pks.lock.Lock()
 	defer pks.lock.Unlock()
 	for _, perk := range perks {
-		pks.nameValues[perk.CampaignName] = perks
+		if _, exists := pks.nameValues[perk.CampaignName]; !exists {
+			pks.nameValues[perk.CampaignName] = make([]*Perk, 0)
+		}
+		pks.nameValues[perk.CampaignName] = append(pks.nameValues[perk.CampaignName], perk)
 		pks.idValues[perk.Id] = perk
 	}
 }
