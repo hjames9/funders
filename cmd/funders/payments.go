@@ -359,6 +359,16 @@ func makeStripePayment(payment *Payment) error {
 		return err
 	}
 
+	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)
+	if !campaignExists {
+		return errors.New(fmt.Sprintf("Campaign not found %d", payment.CampaignId))
+	}
+
+	perk, perkExists := perks.GetPerk(payment.PerkId)
+	if !perkExists {
+		return errors.New(fmt.Sprintf("Perk not found %d", payment.PerkId))
+	}
+
 	cardParams := &stripe.CardParams{
 		Month:  strconv.Itoa(int(creditCardExpirationDate.Month())),
 		Year:   strconv.Itoa(creditCardExpirationDate.Year()),
@@ -372,10 +382,12 @@ func makeStripePayment(payment *Payment) error {
 	}
 
 	chargeParams := &stripe.ChargeParams{
-		Amount:   uint64(payment.Amount * 100), //Value is in cents
-		Currency: stripe.Currency(payment.Currency),
-		Desc:     fmt.Sprintf("Payment id %d on charge for perk %d of campaign %d.", payment.Id, payment.PerkId, payment.CampaignId),
-		Source:   sourceParams,
+		Amount:    uint64(payment.Amount * 100), //Value is in cents
+		Currency:  stripe.Currency(payment.Currency),
+		Desc:      fmt.Sprintf("Payment id %d on charge for perk %d of campaign %d.", payment.Id, payment.PerkId, payment.CampaignId),
+		Email:     payment.ContactEmail,
+		Statement: fmt.Sprintf("Campaign(%s)", campaign.Name),
+		Source:    sourceParams,
 	}
 
 	ch, err := charge.New(chargeParams)
@@ -392,14 +404,12 @@ func makeStripePayment(payment *Payment) error {
 
 		if ch.Paid {
 			payment.UpdateState("success")
-			campaign, exists := campaigns.GetCampaignById(payment.CampaignId)
-			if exists {
+			if campaignExists {
 				campaign.IncrementNumRaised(payment.Amount)
 				campaign.IncrementNumBackers(1)
 			}
 
-			perk, exists := perks.GetPerk(payment.PerkId)
-			if exists {
+			if perkExists {
 				perk.IncrementNumClaimed(1)
 			}
 		} else {
