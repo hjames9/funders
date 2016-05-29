@@ -381,6 +381,19 @@ func makeStripePayment(payment *Payment) error {
 		Card: cardParams,
 	}
 
+	address := stripe.Address{
+		Line1:   payment.Address1,
+		Line2:   payment.Address2,
+		City:    payment.City,
+		Zip:     payment.PostalCode,
+		Country: payment.Country,
+	}
+
+	shippingDetails := &stripe.ShippingDetails{
+		Name:    payment.FullName,
+		Address: address,
+	}
+
 	chargeParams := &stripe.ChargeParams{
 		Amount:    uint64(payment.Amount * 100), //Value is in cents
 		Currency:  stripe.Currency(payment.Currency),
@@ -388,6 +401,7 @@ func makeStripePayment(payment *Payment) error {
 		Email:     payment.ContactEmail,
 		Statement: fmt.Sprintf("Campaign(%s)", campaign.Name),
 		Source:    sourceParams,
+		Shipping:  shippingDetails,
 	}
 
 	ch, err := charge.New(chargeParams)
