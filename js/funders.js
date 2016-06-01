@@ -24,6 +24,12 @@
  *      function(response, status, payment) {}  //Error
  * );
  *
+ * funder.updatePayment(params); //Synchronous
+ * funder.updatePayment(params, //Asynchronous
+ *      function(response, status, payment) {}, //Success
+ *      function(response, status, payment) {}  //Error
+ * );
+ *
  * funder.getPayment(params); //Synchronous
  * funder.getPayment(params, //Asynchronous
  *      function(response, status, payment) {}, //Success
@@ -145,6 +151,10 @@ Funder.prototype.getPerks = function(params, successFunc, errorFunc) {
 
 Funder.prototype.makePayment = function(params, successFunc, errorFunc) {
     return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPaymentsPath(), "POST");
+};
+
+Funder.prototype.updatePayment = function(params, successFunc, errorFunc) {
+    return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPaymentsPath(), "PUT");
 };
 
 Funder.prototype.getPayment = function(params, successFunc, errorFunc) {

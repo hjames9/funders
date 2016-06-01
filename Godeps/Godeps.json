@@ -27,6 +27,10 @@
 			"Rev": "b269bd035a727d6c1081f76e7a239a1b00674c40"
 		},
 		{
+			"ImportPath": "github.com/logpacker/PayPal-Go-SDK",
+			"Rev": "2771e6788bdf14e411d2136d6612f9964ff3c450"
+		},
+		{
 			"ImportPath": "github.com/martini-contrib/binding",
 			"Rev": "8aaceec3b52c275477f32c95ea5c6e8ccaba04c5"
 		},

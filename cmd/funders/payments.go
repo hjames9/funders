@@ -3,32 +3,26 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/hjames9/funders"
 	_ "github.com/lib/pq"
 	"github.com/martini-contrib/binding"
 	"github.com/satori/go.uuid"
-	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/charge"
 	"log"
-	"math"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	GET_PAYMENTS_QUERY   = "SELECT id, campaign_id, perk_id, state FROM funders.active_payments"
-	GET_PAYMENT_QUERY    = "SELECT id, campaign_id, perk_id, state FROM funders.active_payments WHERE id = $1"
+	GET_PAYMENTS_QUERY   = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments"
+	GET_PAYMENT_QUERY    = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments WHERE id = $1"
 	ADD_PAYMENT_QUERY    = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
 	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, state = $4 WHERE id = $5"
 	EMAIL_REGEX          = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
 	PAYMENTS_URL         = "/payments"
-	STRIPE_PROCESSOR     = "stripe"
 )
 
 type Payment struct {
@@ -41,7 +35,9 @@ type Payment struct {
 	CreditCardExpirationDate  string `form:"creditCardExpirationDate"`
 	CreditCardCvv             string `form:"creditCardCvv"`
 	CreditCardPostalCode      string `form:"creditCardPostalCode"`
-	PaypalEmail               string `form:"paypalEmail"`
+	PaypalRedirectUrl         string `form:"paypalRedirectUrl"`
+	PaypalCancelUrl           string `form:"paypalCancelUrl"`
+	PaypalApprovalUrl         string
 	BitcoinAddress            string `form:"bitcoinAddress"`
 	FullName                  string `form:"fullName" binding:"required"`
 	Address1                  string `form:"address1" "binding:"required"`
@@ -88,25 +84,41 @@ func (payment *Payment) GetFailureReason() string {
 	return payment.FailureReason
 }
 
+func (payment *Payment) UpdatePaypalApprovalUrl(paypalApprovalUrl string) string {
+	payment.lock.Lock()
+	defer payment.lock.Unlock()
+	payment.PaypalApprovalUrl = paypalApprovalUrl
+	return payment.PaypalApprovalUrl
+}
+
+func (payment *Payment) GetPaypalApprovalUrl() string {
+	payment.lock.RLock()
+	defer payment.lock.RUnlock()
+	return payment.PaypalApprovalUrl
+}
+
 func (payment *Payment) MarshalJSON() ([]byte, error) {
 	payment.lock.RLock()
 	state := payment.State
 	failureReason := payment.FailureReason
+	paypalApprovalUrl := payment.PaypalApprovalUrl
 	payment.lock.RUnlock()
 
 	type MyPayment Payment
 	return json.Marshal(&struct {
-		Id            string `json:"id"`
-		CampaignId    int64  `json:"campaignId"`
-		PerkId        int64  `json:"perkId"`
-		State         string `json:"state"`
-		FailureReason string `json:"failureReason,omitempty"`
+		Id                string `json:"id"`
+		CampaignId        int64  `json:"campaignId"`
+		PerkId            int64  `json:"perkId"`
+		State             string `json:"state"`
+		FailureReason     string `json:"failureReason,omitempty"`
+		PaypalApprovalUrl string `json:"paypalApprovalUrl,omitempty"`
 	}{
-		Id:            payment.Id,
-		CampaignId:    payment.CampaignId,
-		PerkId:        payment.PerkId,
-		State:         state,
-		FailureReason: failureReason,
+		Id:                payment.Id,
+		CampaignId:        payment.CampaignId,
+		PerkId:            payment.PerkId,
+		State:             state,
+		FailureReason:     failureReason,
+		PaypalApprovalUrl: paypalApprovalUrl,
 	})
 }
 
@@ -117,7 +129,8 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 	errors = validateSizeLimit(payment.CreditCardExpirationDate, "creditCardExpirationDate", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.CreditCardCvv, "creditCardCvv", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.CreditCardPostalCode, "creditCardPostalCode", stringSizeLimit, errors)
-	errors = validateSizeLimit(payment.PaypalEmail, "paypalEmail", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.PaypalRedirectUrl, "paypalRedirectUrl", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.PaypalCancelUrl, "paypalCancelUrl", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.BitcoinAddress, "bitcoinAddress", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.FullName, "fullName", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.Address1, "address1", stringSizeLimit, errors)
@@ -138,8 +151,8 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 			errors = addError(errors, []string{"accountType", "creditCardAccountNumber", "creditCardExpirationDate", "creditCardCvv", "creditCardPostalCode"}, binding.RequiredError, "Credit card account number, expiration date, cvv and postal code required with credit_card account type")
 		}
 
-		if payment.AccountType == "paypal" && (len(payment.PaypalEmail) == 0) {
-			errors = addError(errors, []string{"accountType", "paypalEmail"}, binding.RequiredError, "Paypal email address required with paypal account type")
+		if payment.AccountType == "paypal" && (len(payment.PaypalRedirectUrl) == 0 || len(payment.PaypalCancelUrl) == 0) {
+			errors = addError(errors, []string{"accountType", "paypalRedirectUrl", "paypalCancelUrl"}, binding.RequiredError, "Paypal redirect and cancel url required with paypal account type")
 		}
 
 		if payment.AccountType == "bitcoin" && (len(payment.BitcoinAddress) == 0) {
@@ -221,15 +234,65 @@ func (ps *Payments) GetPayment(id string) (*Payment, bool) {
 	return val, exists
 }
 
+type UpdatePayment struct {
+	Id              string `form:"id" binding:"required"`
+	AccountType     string `form:"accountType" binding:"required"`
+	State           string `form:"state"`
+	PaypalPayerId   string `form:"paypalPayerId"`
+	PaypalPaymentId string `form:"paypalPaymentId"`
+	PaypalToken     string `form:"paypalToken"`
+	payment         *Payment
+}
+
+func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
+	errors = validateSizeLimit(updatePayment.Id, "id", stringSizeLimit, errors)
+	errors = validateSizeLimit(updatePayment.State, "state", stringSizeLimit, errors)
+	errors = validateSizeLimit(updatePayment.AccountType, "accountType", stringSizeLimit, errors)
+	errors = validateSizeLimit(updatePayment.PaypalPayerId, "paypalPayerId", stringSizeLimit, errors)
+	errors = validateSizeLimit(updatePayment.PaypalPaymentId, "paypalPaymentId", stringSizeLimit, errors)
+	errors = validateSizeLimit(updatePayment.PaypalToken, "paypalToken", stringSizeLimit, errors)
+
+	if len(errors) == 0 {
+		if !accountTypes[updatePayment.AccountType] {
+			message := fmt.Sprintf("Invalid account type \"%s\" specified", updatePayment.AccountType)
+			errors = addError(errors, []string{"accountType"}, binding.TypeError, message)
+		}
+
+		if len(updatePayment.State) > 0 && !paymentStates[updatePayment.State] {
+			message := fmt.Sprintf("Invalid payment state \"%s\" specified", updatePayment.State)
+			errors = addError(errors, []string{"state"}, binding.TypeError, message)
+		}
+
+		if updatePayment.AccountType == "paypal" && (len(updatePayment.PaypalPayerId) == 0 || len(updatePayment.PaypalPaymentId) == 0 || len(updatePayment.PaypalToken) == 0) {
+			errors = addError(errors, []string{"accountType", "paypalPayerId", "paypalPaymentId", "paypalToken"}, binding.RequiredError, "PaypalPayerId, PaypalPaymentId, and PaypalToken required to update a paypal payment")
+		}
+
+		var err error
+		updatePayment.payment, err = getPayment(updatePayment.Id)
+		if nil != err {
+			message := fmt.Sprintf("Payment id %s not found", updatePayment.Id)
+			errors = addError(errors, []string{"id"}, binding.TypeError, message)
+		} else {
+			log.Printf("Found payment %s", updatePayment.Id)
+			if !strings.EqualFold(updatePayment.payment.AccountType, updatePayment.AccountType) {
+				message := fmt.Sprintf("Received account type %s does not match existing payment account type %s", updatePayment.AccountType, updatePayment.payment.AccountType)
+				errors = addError(errors, []string{"accountType"}, binding.TypeError, message)
+			}
+		}
+	}
+
+	return errors
+}
+
+//Used for validation
 var currencies map[string]bool
 var emailRegex *regexp.Regexp
-var asyncRequest bool
-var payments chan Payment
-var running bool
-var waitGroup sync.WaitGroup
-var paymentProcessorKey string
 
-func processPayment(paymentBatch []Payment) {
+//Background payment threads
+var paymentBatchProcessor *common.BatchProcessor
+var updatePaymentBatchProcessor *common.BatchProcessor
+
+func processPayment(paymentBatch []interface{}, waitGroup *sync.WaitGroup) {
 	log.Printf("Starting batch processing of %d payments", len(paymentBatch))
 
 	defer waitGroup.Done()
@@ -250,7 +313,8 @@ func processPayment(paymentBatch []Payment) {
 	defer statement.Close()
 
 	counter := 0
-	for _, payment := range paymentBatch {
+	for _, paymentInterface := range paymentBatch {
+		payment := paymentInterface.(*Payment)
 		_, err = addPayment(payment, statement)
 		if nil != err {
 			log.Printf("Error processing payment %#v", payment)
@@ -259,7 +323,16 @@ func processPayment(paymentBatch []Payment) {
 		}
 
 		counter++
-		go makeStripePayment(&payment)
+		switch payment.AccountType {
+		case "credit_card":
+			fallthrough
+		case "bitcoin":
+			go makeStripePayment(payment)
+		case "paypal":
+			go makePaypalPayment(payment)
+		default:
+			log.Printf("Unknown payment account type %s", payment.AccountType)
+		}
 	}
 
 	err = transaction.Commit()
@@ -271,186 +344,26 @@ func processPayment(paymentBatch []Payment) {
 	}
 }
 
-func batchAddPayment(asyncProcessInterval time.Duration, dbMaxOpenConns int) {
-	log.Print("Started batch writing thread")
-
+func processUpdatePayment(updatePaymentBatch []interface{}, waitGroup *sync.WaitGroup) {
+	log.Printf("Starting batch processing of %d updatePayments", len(updatePaymentBatch))
 	defer waitGroup.Done()
 
-	for running {
-		time.Sleep(asyncProcessInterval * time.Second)
-
-		var elements []Payment
-		processing := true
-		for processing {
-			select {
-			case payment, ok := <-payments:
-				if ok {
-					elements = append(elements, payment)
-					break
-				} else {
-					log.Print("Select channel closed")
-					processing = false
-					running = false
-					break
-				}
-			default:
-				processing = false
-				break
-			}
-		}
-
-		if len(elements) <= 0 {
-			continue
-		}
-
-		log.Printf("Retrieved %d payments.  Processing with %d connections", len(elements), dbMaxOpenConns)
-
-		sliceSize := int(math.Floor(float64(len(elements) / dbMaxOpenConns)))
-		remainder := len(elements) % dbMaxOpenConns
-		start := 0
-		end := 0
-
-		for iter := 0; iter < dbMaxOpenConns; iter++ {
-			var leftover int
-			if remainder > 0 {
-				leftover = 1
-				remainder--
-			} else {
-				leftover = 0
-			}
-
-			end += sliceSize + leftover
-
-			if start == end {
-				break
-			}
-
-			waitGroup.Add(1)
-			go processPayment(elements[start:end])
-
-			start = end
+	for _, updatePaymentInterface := range updatePaymentBatch {
+		updatePayment := updatePaymentInterface.(*UpdatePayment)
+		switch updatePayment.AccountType {
+		case "paypal":
+			go executePaypalPayment(updatePayment)
+		case "credit_card":
+			fallthrough
+		case "bitcoin":
+			fallthrough
+		default:
+			log.Printf("Unsupported payment update account type %s", updatePayment.AccountType)
 		}
 	}
 }
 
-func makeStripePayment(payment *Payment) error {
-	stripe.Key = paymentProcessorKey
-
-	if payment.AccountType != "credit_card" {
-		return errors.New("Only credit card payments are currently supported")
-	}
-
-	payment.PaymentProcessorUsed = STRIPE_PROCESSOR
-
-	creditCardExpirationDate, err := time.Parse(common.TIME_LAYOUT, payment.CreditCardExpirationDate)
-	if nil != err {
-		return err
-	}
-
-	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)
-	if !campaignExists {
-		return errors.New(fmt.Sprintf("Campaign not found %d", payment.CampaignId))
-	}
-
-	perk, perkExists := perks.GetPerk(payment.PerkId)
-	if !perkExists {
-		return errors.New(fmt.Sprintf("Perk not found %d", payment.PerkId))
-	}
-
-	cardParams := &stripe.CardParams{
-		Month:  strconv.Itoa(int(creditCardExpirationDate.Month())),
-		Year:   strconv.Itoa(creditCardExpirationDate.Year()),
-		Number: payment.CreditCardAccountNumber,
-		CVC:    payment.CreditCardCvv,
-		Name:   payment.NameOnPayment,
-	}
-
-	sourceParams := &stripe.SourceParams{
-		Card: cardParams,
-	}
-
-	address := stripe.Address{
-		Line1:   payment.Address1,
-		Line2:   payment.Address2,
-		City:    payment.City,
-		Zip:     payment.PostalCode,
-		Country: payment.Country,
-	}
-
-	shippingDetails := &stripe.ShippingDetails{
-		Name:    payment.FullName,
-		Address: address,
-	}
-
-	chargeParams := &stripe.ChargeParams{
-		Amount:    uint64(perk.Price * 100), //Value is in cents
-		Currency:  stripe.Currency(perk.Currency),
-		Desc:      fmt.Sprintf("Payment id %d on charge for perk %d of campaign %d.", payment.Id, payment.PerkId, payment.CampaignId),
-		Email:     payment.ContactEmail,
-		Statement: fmt.Sprintf("Campaign(%s)", campaign.Name),
-		Source:    sourceParams,
-		Shipping:  shippingDetails,
-	}
-
-	ch, err := charge.New(chargeParams)
-	if nil == err {
-		log.Print("Successfully processed payment with processor")
-
-		jsonStr, err := json.Marshal(ch)
-		if nil == err {
-			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
-		} else {
-			log.Print(err)
-			log.Printf("Unable to marshal charge response (%#v) from stripe", ch)
-		}
-
-		if ch.Paid {
-			payment.UpdateState("success")
-			if campaignExists {
-				campaign.IncrementNumRaised(payment.Amount)
-				campaign.IncrementNumBackers(1)
-			}
-
-			if perkExists {
-				perk.IncrementNumClaimed(1)
-			}
-		} else {
-			payment.UpdateState("failure")
-			payment.UpdateFailureReason(ch.FailMsg)
-		}
-	} else {
-		log.Print("Failed processing payment with processor")
-		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
-		payment.UpdateState("failure")
-
-		var stripeError = struct {
-			Type    string
-			Message string
-			Code    string
-			Status  int
-		}{}
-		err = json.Unmarshal([]byte(err.Error()), &stripeError)
-		if nil == err {
-			payment.UpdateFailureReason(stripeError.Message)
-		} else {
-			log.Print(err)
-			log.Print("Error unmarshaling stripe error message")
-		}
-	}
-
-	paymentsCache.AddOrReplacePayment(payment)
-	_, err = db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.PaymentProcessorUsed, payment.GetState(), payment.Id)
-	if nil != err {
-		log.Print(err)
-		log.Printf("Error updating payment %s with information from processor", payment.Id)
-	} else {
-		log.Printf("Successfully updated payment %s in database", payment.Id)
-	}
-
-	return err
-}
-
-func addPayment(payment Payment, statement *sql.Stmt) (string, error) {
+func addPayment(payment *Payment, statement *sql.Stmt) (string, error) {
 	var lastInsertId string
 	var err error
 
@@ -484,7 +397,7 @@ func getPaymentsFromDb() ([]*Payment, error) {
 	var payments []*Payment
 	for rows.Next() {
 		var payment Payment
-		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.State)
+		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.AccountType, &payment.State)
 		if nil == err {
 			payments = append(payments, &payment)
 		} else {
@@ -501,7 +414,7 @@ func getPaymentsFromDb() ([]*Payment, error) {
 
 func getPaymentFromDb(id string) (Payment, error) {
 	var payment Payment
-	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.State)
+	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.AccountType, &payment.State)
 	return payment, err
 }
 
@@ -517,6 +430,11 @@ func getPayment(id string) (*Payment, error) {
 		log.Print("Retrieved payment from cache")
 	}
 
+	return payment, err
+}
+
+func updatePaymentInDb(payment *Payment) (*Payment, error) {
+	_, err := db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.PaymentProcessorUsed, payment.GetState(), payment.Id)
 	return payment, err
 }
 
@@ -560,28 +478,37 @@ func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Paym
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	var response Response
 
-	if asyncRequest && running {
-		payments <- payment
-		responseStr := "Successfully added payment"
+	if paymentBatchProcessor.Running {
+		paymentBatchProcessor.AddEvent(&payment)
+		responseStr := "Successfully scheduled payment"
 		response = Response{Code: http.StatusAccepted, Message: responseStr, Id: payment.Id}
 		log.Print(responseStr)
-	} else if asyncRequest && !running {
+	} else if !paymentBatchProcessor.Running {
 		responseStr := "Could not add payment due to server maintenance"
 		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr, Id: payment.Id}
 		log.Print(responseStr)
-	} else {
-		id, err := addPayment(payment, nil)
-		if nil != err {
-			responseStr := "Could not add payment due to server error"
-			response = Response{Code: http.StatusInternalServerError, Message: responseStr, Id: payment.Id}
-			log.Print(responseStr)
-			log.Print(err)
-			log.Printf("%d database connections opened", db.Stats().OpenConnections)
-		} else {
-			responseStr := "Successfully added payment"
-			response = Response{Code: http.StatusCreated, Message: responseStr, Id: id}
-			log.Print(responseStr)
-		}
+	}
+
+	jsonStr, _ := json.Marshal(response)
+	return response.Code, string(jsonStr)
+}
+
+func updatePaymentHandler(res http.ResponseWriter, req *http.Request, updatePayment UpdatePayment) (int, string) {
+	req.Close = true
+	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
+	var response Response
+
+	log.Printf("Received new payment update: %#v", updatePayment)
+
+	if updatePaymentBatchProcessor.Running {
+		updatePaymentBatchProcessor.AddEvent(&updatePayment)
+		responseStr := "Successfully scheduled payment update"
+		response = Response{Code: http.StatusAccepted, Message: responseStr, Id: updatePayment.Id}
+		log.Print(responseStr)
+	} else if !updatePaymentBatchProcessor.Running {
+		responseStr := "Could not add payment update due to server maintenance"
+		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr, Id: updatePayment.Id}
+		log.Print(responseStr)
 	}
 
 	jsonStr, _ := json.Marshal(response)

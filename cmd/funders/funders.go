@@ -7,6 +7,7 @@ import (
 	"github.com/go-martini/martini"
 	"github.com/hjames9/funders"
 	_ "github.com/lib/pq"
+	"github.com/logpacker/PayPal-Go-SDK"
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/cors"
 	"github.com/martini-contrib/secure"
@@ -19,18 +20,20 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 const (
-	GET_ACCOUNT_TYPES_QUERY = "SELECT enum_range(NULL::funders.account_type) AS account_types"
-	USER_AGENT_HEADER       = "User-Agent"
-	CONTENT_TYPE_HEADER     = "Content-Type"
-	LOCATION_HEADER         = "Location"
-	ORIGIN_HEADER           = "Origin"
-	JSON_CONTENT_TYPE       = "application/json"
-	GET_METHOD              = "GET"
-	POST_METHOD             = "POST"
+	GET_ACCOUNT_TYPES_QUERY  = "SELECT enum_range(NULL::funders.account_type) AS account_types"
+	GET_PAYMENT_STATES_QUERY = "SELECT enum_range(NULL::funders.payment_state) AS payment_states"
+	USER_AGENT_HEADER        = "User-Agent"
+	CONTENT_TYPE_HEADER      = "Content-Type"
+	LOCATION_HEADER          = "Location"
+	ORIGIN_HEADER            = "Origin"
+	JSON_CONTENT_TYPE        = "application/json"
+	GET_METHOD               = "GET"
+	POST_METHOD              = "POST"
+	PUT_METHOD               = "PUT"
+	PATCH_METHOD             = "PATCH"
 )
 
 type Response struct {
@@ -43,6 +46,7 @@ var db *sql.DB
 var stringSizeLimit int
 var botDetection common.BotDetection
 var accountTypes map[string]bool
+var paymentStates map[string]bool
 
 func getAccountTypes() string {
 	var accountTypesStr string
@@ -55,6 +59,19 @@ func getAccountTypes() string {
 	}
 
 	return accountTypesStr
+}
+
+func getPaymentStates() string {
+	var paymentStatesStr string
+
+	err := db.QueryRow(GET_PAYMENT_STATES_QUERY).Scan(&paymentStatesStr)
+	if nil != err {
+		log.Print(err)
+	} else {
+		paymentStatesStr = strings.Trim(paymentStatesStr, "{}")
+	}
+
+	return paymentStatesStr
 }
 
 func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
@@ -107,13 +124,13 @@ func errorHandler(errors binding.Errors, res http.ResponseWriter) {
 			res.WriteHeader(http.StatusBadRequest)
 			response = Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
 		} else if errors.Has(common.BOT_ERROR) {
-			if botDetection.PlayCoy && !asyncRequest {
+			if botDetection.PlayCoy && !paymentBatchProcessor.Running {
 				res.WriteHeader(http.StatusCreated)
 				response = Response{Code: http.StatusCreated, Message: "Successfully added payment", Id: uuid.NewV4().String()}
 				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
-			} else if botDetection.PlayCoy && asyncRequest {
+			} else if botDetection.PlayCoy && paymentBatchProcessor.Running {
 				res.WriteHeader(http.StatusAccepted)
-				response = Response{Code: http.StatusAccepted, Message: "Successfully added payment"}
+				response = Response{Code: http.StatusAccepted, Message: "Successfully scheduled payment"}
 				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
 			} else {
 				res.WriteHeader(http.StatusBadRequest)
@@ -162,7 +179,7 @@ func runHttpServer() {
 
 	martini_.Use(cors.Allow(&cors.Options{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{GET_METHOD, POST_METHOD},
+		AllowMethods:     []string{GET_METHOD, POST_METHOD, PUT_METHOD, PATCH_METHOD},
 		AllowHeaders:     allowHeaders,
 		AllowCredentials: true,
 	}))
@@ -192,6 +209,10 @@ func runHttpServer() {
 
 	//Accept payments
 	martini_.Post(PAYMENTS_URL, binding.Form(Payment{}), errorHandler, makePaymentHandler)
+
+	//Update payments
+	martini_.Put(PAYMENTS_URL, binding.Form(UpdatePayment{}), errorHandler, updatePaymentHandler)
+	martini_.Patch(PAYMENTS_URL, binding.Form(UpdatePayment{}), errorHandler, updatePaymentHandler)
 
 	martini_.NotFound(notFoundHandler)
 	martini_.Run()
@@ -243,12 +264,34 @@ func main() {
 		log.Print(err)
 	}
 
-	//Get access key for payment processor
-	paymentProcessorKey = os.Getenv("PAYMENT_PROCESSOR_KEY")
-	if len(paymentProcessorKey) > 0 {
-		log.Printf("Payment processor key is set to: %s", paymentProcessorKey)
+	//Get access key for stripe
+	stripeKey = os.Getenv("STRIPE_KEY")
+	if len(stripeKey) > 0 {
+		log.Printf("Stripe key is set to: %s", stripeKey)
 	} else {
-		log.Print("Payment processor key is NOT set")
+		log.Fatal("Stripe key is NOT set")
+	}
+
+	//Get client and secret ids for paypal
+	paypalClientId := os.Getenv("PAYPAL_CLIENT_ID")
+	paypalSecretId := os.Getenv("PAYPAL_SECRET_ID")
+	if len(paypalClientId) > 0 && len(paypalSecretId) > 0 {
+		log.Printf("Paypal client id is %s, secret id is %s", paypalClientId, paypalSecretId)
+	} else {
+		log.Fatal("Both PAYPAL_CLIENT_ID and PAYPAL_SECRET_ID need to be set")
+	}
+
+	paypalClient, err = paypalsdk.NewClient(paypalClientId, paypalSecretId, paypalsdk.APIBaseSandBox)
+	if nil != err {
+		log.Print(err)
+		log.Fatal("Error creating paypal client")
+	} else {
+		accessToken, err := paypalClient.GetAccessToken()
+		if nil == err {
+			log.Printf("Successfully created paypal client with access token %s", accessToken)
+		} else {
+			log.Fatal("Error creating paypal client with access token")
+		}
 	}
 
 	//E-mail regular expression
@@ -257,9 +300,11 @@ func main() {
 	if nil != err {
 		log.Print(err)
 		log.Fatalf("E-mail regex compilation failed for %s", EMAIL_REGEX)
+	} else {
+		log.Print("E-mail regex compilation succeeded")
 	}
 
-	//Allowable lead sources
+	//Allowable account types
 	accountTypesStr := getAccountTypes()
 	if len(accountTypesStr) > 0 {
 		accountTypes = make(map[string]bool)
@@ -272,6 +317,21 @@ func main() {
 		log.Printf("Allowable account types: %s", accountTypesStr)
 	} else {
 		log.Fatal("Unable to retrieve account types from database")
+	}
+
+	//Allowable payment states
+	paymentStatesStr := getPaymentStates()
+	if len(paymentStatesStr) > 0 {
+		paymentStates = make(map[string]bool)
+
+		paymentStatesArr := strings.Split(paymentStatesStr, ",")
+		for _, state := range paymentStatesArr {
+			paymentStates[state] = true
+		}
+
+		log.Printf("Allowable payment states: %s", paymentStatesStr)
+	} else {
+		log.Fatal("Unable to retrieve payment states from database")
 	}
 
 	//Allowable currencies
@@ -330,14 +390,6 @@ func main() {
 	log.Printf("Creating robot detection with %#v", botDetection)
 
 	//Asynchronous payment processing
-	asyncRequest, err = strconv.ParseBool(common.GetenvWithDefault("ASYNC_REQUEST", "false"))
-	if nil != err {
-		asyncRequest = false
-		running = false
-		log.Printf("Error converting input for field ASYNC_REQUEST. Defaulting to false.")
-		log.Print(err)
-	}
-
 	asyncRequestSizeStr := common.GetenvWithDefault("ASYNC_REQUEST_SIZE", "100000")
 	asyncRequestSize, err := strconv.Atoi(asyncRequestSizeStr)
 	if nil != err {
@@ -354,14 +406,16 @@ func main() {
 		log.Print(err)
 	}
 
-	if asyncRequest {
-		running = true
-		waitGroup.Add(1)
-		payments = make(chan Payment, asyncRequestSize)
-		go batchAddPayment(time.Duration(asyncProcessInterval), dbMaxOpenConns)
-		log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
-		log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
-	}
+	//Make payment processor
+	paymentBatchProcessor = common.NewBatchProcessor(processPayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
+	paymentBatchProcessor.Start()
+
+	//Update payment processor
+	updatePaymentBatchProcessor = common.NewBatchProcessor(processUpdatePayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
+	updatePaymentBatchProcessor.Start()
+
+	log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
+	log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
 
 	//Initialize campaigns
 	cmps, err := getCampaignsFromDb()
@@ -400,8 +454,17 @@ func main() {
 	go func() {
 		<-signals
 		log.Print("Shutting down...")
-		running = false
-		waitGroup.Wait()
+
+		if nil != paymentBatchProcessor {
+			paymentBatchProcessor.Stop()
+			log.Print("Payment batch processor shut down")
+		}
+
+		if nil != updatePaymentBatchProcessor {
+			updatePaymentBatchProcessor.Stop()
+			log.Print("Payment update batch processor shut down")
+		}
+
 		os.Exit(0)
 	}()
 

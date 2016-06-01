@@ -23,11 +23,12 @@ A Go-based http server to create your own crowdfunding campaign on your website.
     BOTDETECT_FIELDVALUE=iamhuman (default is blank)
     BOTDETECT_MUSTMATCH=true (default is true)
     BOTDETECT_PLAYCOY=true (default is true)
-    ASYNC_REQUEST=true (default is false)
     ASYNC_REQUEST_SIZE=100000 (default is 100000)
     ASYNC_PROCESS_INTERVAL=10 (default is 5 seconds)
     STRING_SIZE_LIMIT=1000 (default is 500)
-    PAYMENT_PROCESSOR_KEY=sk_test_BQokikJOvBiI2HlWgH4olfQ2 (no default)
+    STRIPE_KEY=sk_test_BQokikJOvBiI2HlWgH4olfQ2 (no default)
+    PAYPAL_CLIENT_ID=blahblah (no default)
+    PAYPAL_SECRET_ID=secretkey (no default)
     ALLOWABLE_CURRENCIES=USD,EC,EUR (default is empty for all allowable currencies)
 
 ## fundersctl - Utility to create/delete/update campaigns and perks

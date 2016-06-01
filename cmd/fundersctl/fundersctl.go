@@ -288,19 +288,14 @@ func getPerkFieldsFromCommandLine() (map[string]interface{}, error) {
 			fallthrough
 		case "currency":
 			perkFieldNames[perkFieldName] = strings.TrimSpace(perkFieldValue)
-			break
 		case "price":
 			perkFieldNames[perkFieldName], err = strconv.ParseFloat(strings.TrimSpace(perkFieldValue), 64)
-			break
 		case "available":
 			perkFieldNames[perkFieldName], err = strconv.ParseInt(strings.TrimSpace(perkFieldValue), 10, 64)
-			break
 		case "ship_date":
 			perkFieldNames[perkFieldName], err = time.Parse(common.TIME_LAYOUT, strings.TrimSpace(perkFieldValue))
-			break
 		default:
 			err = errors.New("Invalid field name specified")
-			break
 		}
 
 		if nil != err {
