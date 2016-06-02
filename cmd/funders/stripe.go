@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/hjames9/funders"
 	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/bitcoinreceiver"
 	"github.com/stripe/stripe-go/charge"
 	"log"
 	"strconv"
@@ -21,16 +22,24 @@ var stripeKey string
 
 func makeStripePayment(payment *Payment) error {
 	stripe.Key = stripeKey
-
-	if payment.AccountType != "credit_card" {
-		return errors.New("Only credit card payments are currently supported")
-	}
-
 	payment.PaymentProcessorUsed = STRIPE_PROCESSOR
 
-	creditCardExpirationDate, err := time.Parse(common.TIME_LAYOUT, payment.CreditCardExpirationDate)
-	if nil != err {
-		return err
+	var sourceParams *stripe.SourceParams
+	var bitcoinReceiver *stripe.BitcoinReceiver
+	var err error
+
+	if payment.AccountType == "credit_card" {
+		sourceParams, err = makeStripeCreditCardPayment(payment)
+		if nil != err {
+			return err
+		}
+	} else if payment.AccountType == "bitcoin" {
+		bitcoinReceiver, err = makeStripeBitcoinPayment(payment)
+		if nil != err {
+			return err
+		}
+	} else {
+		return errors.New("Only credit card and bitcoin payments are currently supported")
 	}
 
 	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)
@@ -41,18 +50,6 @@ func makeStripePayment(payment *Payment) error {
 	perk, perkExists := perks.GetPerk(payment.PerkId)
 	if !perkExists {
 		return errors.New(fmt.Sprintf("Perk not found %d", payment.PerkId))
-	}
-
-	cardParams := &stripe.CardParams{
-		Month:  strconv.Itoa(int(creditCardExpirationDate.Month())),
-		Year:   strconv.Itoa(creditCardExpirationDate.Year()),
-		Number: payment.CreditCardAccountNumber,
-		CVC:    payment.CreditCardCvv,
-		Name:   payment.NameOnPayment,
-	}
-
-	sourceParams := &stripe.SourceParams{
-		Card: cardParams,
 	}
 
 	address := stripe.Address{
@@ -78,6 +75,9 @@ func makeStripePayment(payment *Payment) error {
 		Shipping:  shippingDetails,
 	}
 
+	if nil != bitcoinReceiver {
+		chargeParams.SetSource(bitcoinReceiver.ID)
+	}
 	ch, err := charge.New(chargeParams)
 	if nil == err {
 		log.Print("Successfully processed payment with processor")
@@ -105,6 +105,7 @@ func makeStripePayment(payment *Payment) error {
 			payment.UpdateFailureReason(ch.FailMsg)
 		}
 	} else {
+		log.Print(err)
 		log.Print("Failed processing payment with processor")
 		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
 		payment.UpdateState("failure")
@@ -134,4 +135,36 @@ func makeStripePayment(payment *Payment) error {
 	}
 
 	return err
+}
+
+func makeStripeCreditCardPayment(payment *Payment) (*stripe.SourceParams, error) {
+	creditCardExpirationDate, err := time.Parse(common.TIME_LAYOUT, payment.CreditCardExpirationDate)
+	if nil != err {
+		return nil, err
+	}
+
+	cardParams := &stripe.CardParams{
+		Month:  strconv.Itoa(int(creditCardExpirationDate.Month())),
+		Year:   strconv.Itoa(creditCardExpirationDate.Year()),
+		Number: payment.CreditCardAccountNumber,
+		CVC:    payment.CreditCardCvv,
+		Name:   payment.NameOnPayment,
+	}
+
+	sourceParams := stripe.SourceParams{
+		Card: cardParams,
+	}
+
+	return &sourceParams, nil
+}
+
+func makeStripeBitcoinPayment(payment *Payment) (*stripe.BitcoinReceiver, error) {
+	receiverParams := &stripe.BitcoinReceiverParams{
+		Amount:   uint64(payment.Amount * 100),      //Value is in cents
+		Currency: stripe.Currency(payment.Currency), //Only USD supported for bitcoin
+		Email:    payment.BitcoinAddress,
+	}
+
+	receiver, err := bitcoinreceiver.New(receiverParams)
+	return receiver, err
 }

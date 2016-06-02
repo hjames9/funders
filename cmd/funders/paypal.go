@@ -126,17 +126,16 @@ func executePaypalPayment(updatePayment *UpdatePayment) error {
 			perk.IncrementNumClaimed(1)
 		}
 	} else {
+		log.Print(err)
 		payment.UpdateState("failure")
 
-		jsonStr, err := json.Marshal(executeResult)
+		jsonStr, err := json.Marshal(err)
 		if nil == err {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		} else {
 			log.Print(err)
 			log.Printf("Unable to marshal payment response (%#v) from paypal", executeResult)
 		}
-
-		log.Print(err)
 	}
 
 	paymentsCache.AddOrReplacePayment(updatePayment.payment)

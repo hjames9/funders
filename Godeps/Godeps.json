@@ -52,6 +52,11 @@
 			"Rev": "c7fcc60aeb412e14c6bcbe4a2aef9ac8611e55c9"
 		},
 		{
+			"ImportPath": "github.com/stripe/stripe-go/bitcoinreceiver",
+			"Comment": "v14.2.0",
+			"Rev": "c7fcc60aeb412e14c6bcbe4a2aef9ac8611e55c9"
+		},
+		{
 			"ImportPath": "github.com/stripe/stripe-go/charge",
 			"Comment": "v14.2.0",
 			"Rev": "c7fcc60aeb412e14c6bcbe4a2aef9ac8611e55c9"
