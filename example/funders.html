@@ -89,13 +89,13 @@
 
         payment2 = funder.makePayment(paymentParams2);
         console.log(payment2);
-/*
+
         var paymentParams3 = { "campaignId" : "31337",
                                "perkId" : "31337",
                                "accountType" : "paypal",
                                "nameOnPayment" : "John Doe",
-                               "returnUrl" : "https://getlinc.com?status=success",
-                               "cancelUrl" : "https://getlinc.com?status=failure",
+                               "paypalRedirectUrl" : "https://getlinc.com?status=success",
+                               "paypalCancelUrl" : "https://getlinc.com?status=failure",
                                "fullName" : "John Doe",
                                "address1" : "55555 White Plains Road",
                                "address2" : "Apt. 555",
@@ -106,7 +106,8 @@
 
         payment3 = funder.makePayment(paymentParams3);
         console.log(payment3);
-*/
+
+/*
         var paymentParams4 = { "id" : "cef6fab5-ddb0-442e-ab10-b281dd982525",
                                "accountType" : "paypal",
                                "state" : "success",
@@ -114,9 +115,9 @@
                                "paypalPaymentId" : "PAY-6RV70583SB702805EKEYSZ6Y",
                                "paypalToken" : "EC-60U79048BN7719609"
                              };
-
         payment4 = funder.updatePayment(paymentParams4);
         console.log(payment4);
+*/
     </script>
 </body>
 

@@ -34,7 +34,7 @@ func makePaypalPayment(payment *Payment) error {
 	}
 
 	amount := paypalsdk.Amount{
-		Total:    strconv.FormatFloat(payment.Amount, 'E', -1, 64),
+		Total:    strconv.FormatFloat(payment.Amount, 'f', -1, 64),
 		Currency: payment.Currency,
 	}
 
@@ -55,10 +55,18 @@ func makePaypalPayment(payment *Payment) error {
 		//Set approval url
 		payment.PaypalApprovalUrl = paymentResult.Links[0].Href
 	} else {
+		log.Printf("%#v", err)
 		log.Print("Failed processing payment with processor")
-		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
+
+		jsonStr, err := json.Marshal(err)
+		if nil != err {
+			log.Print(err)
+			log.Print("Unable to marshal paypal error")
+		} else {
+			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
+		}
+
 		payment.UpdateState("failure")
-		log.Print(err)
 	}
 
 	paymentsCache.AddOrReplacePayment(payment)

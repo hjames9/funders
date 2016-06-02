@@ -78,6 +78,7 @@ func makeStripePayment(payment *Payment) error {
 	if nil != bitcoinReceiver {
 		chargeParams.SetSource(bitcoinReceiver.ID)
 	}
+
 	ch, err := charge.New(chargeParams)
 	if nil == err {
 		log.Print("Successfully processed payment with processor")
