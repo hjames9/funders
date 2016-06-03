@@ -10,6 +10,7 @@
     <link type="text/css" rel="stylesheet" href="funders.css"/>
     <script type="text/javascript" src="//code.jquery.com/jquery-2.2.3.min.js"></script>
     <script type="text/javascript" src="//code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
     <script type="text/javascript" src="../js/funders.js"></script>
 </head>
 
@@ -56,7 +57,7 @@
         progressBar.progressbar({max: 1000000, value: 654000});
 
         var funder = new Funder();
-        funder.setUrl("http://hayden.hopto.org:3000");
+        funder.setUrl("http://localhost:3000");
 
         var campaignParams = { "name" : "alpha" };
         campaign = funder.getCampaign(campaignParams);
@@ -107,7 +108,6 @@
         payment3 = funder.makePayment(paymentParams3);
         console.log(payment3);
 
-/*
         var paymentParams4 = { "id" : "cef6fab5-ddb0-442e-ab10-b281dd982525",
                                "accountType" : "paypal",
                                "state" : "success",
@@ -117,7 +117,6 @@
                              };
         payment4 = funder.updatePayment(paymentParams4);
         console.log(payment4);
-*/
     </script>
 </body>
 
