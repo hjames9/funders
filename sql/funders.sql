@@ -40,7 +40,8 @@ CREATE TABLE perks
     ship_date DATE NOT NULL,
     active BOOLEAN NOT NULL DEFAULT(true),
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
+    updated_at TIMESTAMP NOT NULL,
+    CHECK(price > 0)
 );
 
 ALTER SEQUENCE perks_id_seq INCREMENT BY 3 START WITH 31337 RESTART WITH 31337;

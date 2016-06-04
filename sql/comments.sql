@@ -45,6 +45,7 @@ COMMENT ON COLUMN perks.updated_at IS 'Timestamp of last time perk was updated';
 
 COMMENT ON CONSTRAINT perks_pkey ON perks IS 'Primary key constraint for perks id column';
 COMMENT ON CONSTRAINT perks_campaign_id_fkey ON perks IS 'Foreign key constraint for campaigns id column';
+COMMENT ON CONSTRAINT perks_price_check ON perks IS 'Check constraint used to enforce that a price for a perk is more than zero';
 COMMENT ON INDEX p_name_idx IS 'B-tree index for name column for perks';
 
 COMMENT ON SEQUENCE perks_id_seq IS 'Primary key sequence for perks table.  Values are obfuscated since they''re used on public interfaces';
