@@ -1,3 +1,7 @@
-#paymentForm {
-    float: left;
+table, th, td {
+    border: 1px solid black;
+}
+
+.perksHeader {
+    font-weight: bold;
 }
