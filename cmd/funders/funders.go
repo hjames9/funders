@@ -23,17 +23,16 @@ import (
 )
 
 const (
-	GET_ACCOUNT_TYPES_QUERY  = "SELECT enum_range(NULL::funders.account_type) AS account_types"
-	GET_PAYMENT_STATES_QUERY = "SELECT enum_range(NULL::funders.payment_state) AS payment_states"
-	USER_AGENT_HEADER        = "User-Agent"
-	CONTENT_TYPE_HEADER      = "Content-Type"
-	LOCATION_HEADER          = "Location"
-	ORIGIN_HEADER            = "Origin"
-	JSON_CONTENT_TYPE        = "application/json"
-	GET_METHOD               = "GET"
-	POST_METHOD              = "POST"
-	PUT_METHOD               = "PUT"
-	PATCH_METHOD             = "PATCH"
+	USER_AGENT_HEADER   = "User-Agent"
+	CONTENT_TYPE_HEADER = "Content-Type"
+	LOCATION_HEADER     = "Location"
+	ORIGIN_HEADER       = "Origin"
+	JSON_CONTENT_TYPE   = "application/json"
+	GET_METHOD          = "GET"
+	HEAD_METHOD         = "HEAD"
+	POST_METHOD         = "POST"
+	PUT_METHOD          = "PUT"
+	PATCH_METHOD        = "PATCH"
 )
 
 type Response struct {
@@ -45,34 +44,6 @@ type Response struct {
 var db *sql.DB
 var stringSizeLimit int
 var botDetection common.BotDetection
-var accountTypes map[string]bool
-var paymentStates map[string]bool
-
-func getAccountTypes() string {
-	var accountTypesStr string
-
-	err := db.QueryRow(GET_ACCOUNT_TYPES_QUERY).Scan(&accountTypesStr)
-	if nil != err {
-		log.Print(err)
-	} else {
-		accountTypesStr = strings.Trim(accountTypesStr, "{}")
-	}
-
-	return accountTypesStr
-}
-
-func getPaymentStates() string {
-	var paymentStatesStr string
-
-	err := db.QueryRow(GET_PAYMENT_STATES_QUERY).Scan(&paymentStatesStr)
-	if nil != err {
-		log.Print(err)
-	} else {
-		paymentStatesStr = strings.Trim(paymentStatesStr, "{}")
-	}
-
-	return paymentStatesStr
-}
 
 func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
 	if len(field) > sizeLimit {
@@ -179,7 +150,7 @@ func runHttpServer() {
 
 	martini_.Use(cors.Allow(&cors.Options{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{GET_METHOD, POST_METHOD, PUT_METHOD, PATCH_METHOD},
+		AllowMethods:     []string{GET_METHOD, HEAD_METHOD, POST_METHOD, PUT_METHOD, PATCH_METHOD},
 		AllowHeaders:     allowHeaders,
 		AllowCredentials: true,
 	}))
@@ -310,6 +281,8 @@ func main() {
 	if nil != err {
 		log.Print(err)
 		log.Fatalf("UUID regex compilation failed for %s", UUID_REGEX)
+	} else {
+		log.Print("UUID regex compilation succeeded")
 	}
 
 	//Allowable account types

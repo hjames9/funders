@@ -17,13 +17,15 @@ import (
 )
 
 const (
-	GET_PAYMENTS_QUERY   = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments"
-	GET_PAYMENT_QUERY    = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments WHERE id = $1"
-	ADD_PAYMENT_QUERY    = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
-	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, state = $4 WHERE id = $5"
-	EMAIL_REGEX          = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
-	UUID_REGEX           = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
-	PAYMENTS_URL         = "/payments"
+	GET_ACCOUNT_TYPES_QUERY  = "SELECT enum_range(NULL::funders.account_type) AS account_types"
+	GET_PAYMENT_STATES_QUERY = "SELECT enum_range(NULL::funders.payment_state) AS payment_states"
+	GET_PAYMENTS_QUERY       = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments"
+	GET_PAYMENT_QUERY        = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments WHERE id = $1"
+	ADD_PAYMENT_QUERY        = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
+	UPDATE_PAYMENT_QUERY     = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, state = $4 WHERE id = $5"
+	EMAIL_REGEX              = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
+	UUID_REGEX               = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
+	PAYMENTS_URL             = "/payments"
 )
 
 type Payment struct {
@@ -285,10 +287,39 @@ func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Re
 	return errors
 }
 
+//Payment enumerations
+func getAccountTypes() string {
+	var accountTypesStr string
+
+	err := db.QueryRow(GET_ACCOUNT_TYPES_QUERY).Scan(&accountTypesStr)
+	if nil != err {
+		log.Print(err)
+	} else {
+		accountTypesStr = strings.Trim(accountTypesStr, "{}")
+	}
+
+	return accountTypesStr
+}
+
+func getPaymentStates() string {
+	var paymentStatesStr string
+
+	err := db.QueryRow(GET_PAYMENT_STATES_QUERY).Scan(&paymentStatesStr)
+	if nil != err {
+		log.Print(err)
+	} else {
+		paymentStatesStr = strings.Trim(paymentStatesStr, "{}")
+	}
+
+	return paymentStatesStr
+}
+
 //Used for validation
 var currencies map[string]bool
 var emailRegex *regexp.Regexp
 var uuidRegex *regexp.Regexp
+var accountTypes map[string]bool
+var paymentStates map[string]bool
 
 //Background payment threads
 var paymentBatchProcessor *common.BatchProcessor
