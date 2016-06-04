@@ -8,6 +8,7 @@ import (
 	"github.com/hjames9/funders"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -130,8 +131,12 @@ func getPerks(name string) ([]*Perk, error) {
 	pks, exists := perks.GetPerks(name)
 	if !exists {
 		pks, err = getPerksFromDb(name)
-		perks.AddOrReplacePerks(pks)
-		log.Print("Retrieved perks from database")
+		if nil == err {
+			perks.AddOrReplacePerks(pks)
+			log.Print("Retrieved perks from database")
+		} else {
+			log.Print("Perks not found in database")
+		}
 	} else {
 		log.Print("Retrieved perks from cache")
 	}
@@ -144,21 +149,26 @@ func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 	req.Close = true
 
 	var response Response
-	campaignName := req.URL.Query().Get("campaign_name")
+	campaignName := strings.TrimSpace(req.URL.Query().Get("campaign_name"))
 
-	perks, err := getPerks(campaignName)
-
-	if nil != err {
-		responseStr := "Could not get perks due to server error"
-		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
-		log.Print(err)
-	} else if len(perks) <= 0 {
-		responseStr := fmt.Sprintf("%s not found", campaignName)
-		response = Response{Code: http.StatusNotFound, Message: responseStr}
-		log.Print(responseStr)
+	if len(campaignName) == 0 {
+		responseStr := "Campaign name parameter required"
+		response = Response{Code: http.StatusBadRequest, Message: responseStr}
 	} else {
-		jsonStr, _ := json.Marshal(perks)
-		return http.StatusOK, string(jsonStr)
+		perks, err := getPerks(campaignName)
+
+		if nil != err {
+			responseStr := "Could not get perks due to server error"
+			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			log.Print(err)
+		} else if len(perks) <= 0 {
+			responseStr := fmt.Sprintf("%s not found", campaignName)
+			response = Response{Code: http.StatusNotFound, Message: responseStr}
+			log.Print(responseStr)
+		} else {
+			jsonStr, _ := json.Marshal(perks)
+			return http.StatusOK, string(jsonStr)
+		}
 	}
 
 	jsonStr, _ := json.Marshal(response)

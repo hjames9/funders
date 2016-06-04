@@ -304,6 +304,14 @@ func main() {
 		log.Print("E-mail regex compilation succeeded")
 	}
 
+	//UUID regular expression
+	log.Print("Compiling uuid regular expression")
+	uuidRegex, err = regexp.Compile(UUID_REGEX)
+	if nil != err {
+		log.Print(err)
+		log.Fatalf("UUID regex compilation failed for %s", UUID_REGEX)
+	}
+
 	//Allowable account types
 	accountTypesStr := getAccountTypes()
 	if len(accountTypesStr) > 0 {

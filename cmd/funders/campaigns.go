@@ -7,6 +7,7 @@ import (
 	"github.com/hjames9/funders"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -143,8 +144,12 @@ func getCampaign(name string) (*Campaign, error) {
 	if !exists {
 		var campaignDb Campaign
 		campaignDb, err = getCampaignFromDb(name)
-		campaign = campaigns.AddOrReplaceCampaign(&campaignDb)
-		log.Print("Retrieved campaign from database")
+		if nil == err {
+			campaign = campaigns.AddOrReplaceCampaign(&campaignDb)
+			log.Print("Retrieved campaign from database")
+		} else {
+			log.Print("Campaign not found in database")
+		}
 	} else {
 		log.Print("Retrieved campaign from cache")
 	}
@@ -157,21 +162,26 @@ func getCampaignHandler(res http.ResponseWriter, req *http.Request) (int, string
 	req.Close = true
 
 	var response Response
-	campaignName := req.URL.Query().Get("name")
+	campaignName := strings.TrimSpace(req.URL.Query().Get("name"))
 
-	campaign, err := getCampaign(campaignName)
-
-	if sql.ErrNoRows == err {
-		responseStr := fmt.Sprintf("%s not found", campaignName)
-		response = Response{Code: http.StatusNotFound, Message: responseStr}
-		log.Print(responseStr)
-	} else if nil != err {
-		responseStr := "Could not get campaign due to server error"
-		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
-		log.Print(err)
+	if len(campaignName) == 0 {
+		responseStr := "Campaign name parameter required"
+		response = Response{Code: http.StatusBadRequest, Message: responseStr}
 	} else {
-		jsonStr, _ := json.Marshal(campaign)
-		return http.StatusOK, string(jsonStr)
+		campaign, err := getCampaign(campaignName)
+
+		if sql.ErrNoRows == err {
+			responseStr := fmt.Sprintf("%s not found", campaignName)
+			response = Response{Code: http.StatusNotFound, Message: responseStr}
+			log.Print(responseStr)
+		} else if nil != err {
+			responseStr := "Could not get campaign due to server error"
+			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			log.Print(err)
+		} else {
+			jsonStr, _ := json.Marshal(campaign)
+			return http.StatusOK, string(jsonStr)
+		}
 	}
 
 	jsonStr, _ := json.Marshal(response)

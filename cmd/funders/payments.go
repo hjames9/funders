@@ -22,6 +22,7 @@ const (
 	ADD_PAYMENT_QUERY    = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
 	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, state = $4 WHERE id = $5"
 	EMAIL_REGEX          = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
+	UUID_REGEX           = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
 	PAYMENTS_URL         = "/payments"
 )
 
@@ -287,6 +288,7 @@ func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Re
 //Used for validation
 var currencies map[string]bool
 var emailRegex *regexp.Regexp
+var uuidRegex *regexp.Regexp
 
 //Background payment threads
 var paymentBatchProcessor *common.BatchProcessor
@@ -424,8 +426,12 @@ func getPayment(id string) (*Payment, error) {
 	if !exists {
 		var paymentDb Payment
 		paymentDb, err = getPaymentFromDb(id)
-		payment = paymentsCache.AddOrReplacePayment(&paymentDb)
-		log.Print("Retrieved payment from database")
+		if nil == err {
+			payment = paymentsCache.AddOrReplacePayment(&paymentDb)
+			log.Print("Retrieved payment from database")
+		} else {
+			log.Print("Payment not found in database")
+		}
 	} else {
 		log.Print("Retrieved payment from cache")
 	}
@@ -443,21 +449,29 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 	req.Close = true
 
 	var response Response
-	id := req.URL.Query().Get("id")
+	id := strings.TrimSpace(req.URL.Query().Get("id"))
 
-	payment, err := getPayment(id)
-
-	if sql.ErrNoRows == err {
-		responseStr := fmt.Sprintf("%s not found", id)
-		response = Response{Code: http.StatusNotFound, Message: responseStr}
-		log.Print(err)
-	} else if nil != err {
-		responseStr := "Could not get payment due to server error"
-		response = Response{Code: http.StatusInternalServerError, Message: responseStr}
-		log.Print(err)
+	if len(id) == 0 {
+		responseStr := "Payment id parameter required"
+		response = Response{Code: http.StatusBadRequest, Message: responseStr}
+	} else if !uuidRegex.MatchString(id) {
+		responseStr := fmt.Sprintf("Payment id parameter %s is in the wrong format", id)
+		response = Response{Code: http.StatusBadRequest, Message: responseStr}
 	} else {
-		jsonStr, _ := json.Marshal(payment)
-		return http.StatusOK, string(jsonStr)
+		payment, err := getPayment(id)
+
+		if sql.ErrNoRows == err {
+			responseStr := fmt.Sprintf("%s not found", id)
+			response = Response{Code: http.StatusNotFound, Message: responseStr}
+			log.Print(err)
+		} else if nil != err {
+			responseStr := "Could not get payment due to server error"
+			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			log.Print(err)
+		} else {
+			jsonStr, _ := json.Marshal(payment)
+			return http.StatusOK, string(jsonStr)
+		}
 	}
 
 	jsonStr, _ := json.Marshal(response)
