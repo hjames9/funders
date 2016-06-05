@@ -1,0 +1,1 @@
+make: go build ./cmd/funders && go build ./cmd/fundersctl

@@ -1,5 +1,5 @@
 # Funders:  Toolkit for creating your own crowdfunding campaign 
-A Go-based http server to create your own crowdfunding campaign on your website.  Crowdfunding data is persisted in a Postgresql database and payment integration currently supports Stripe.
+A Go-based http server to create your own crowdfunding campaign on your website.  Crowdfunding data is persisted in a Postgresql database and payment integration currently supports Stripe and Paypal.
 
 ## funders - http server
 
