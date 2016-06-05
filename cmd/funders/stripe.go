@@ -68,7 +68,7 @@ func makeStripePayment(payment *Payment) error {
 	chargeParams := &stripe.ChargeParams{
 		Amount:    uint64(perk.Price * 100), //Value is in cents
 		Currency:  stripe.Currency(perk.Currency),
-		Desc:      fmt.Sprintf("Payment id %d on charge for perk %d of campaign %d.", payment.Id, payment.PerkId, payment.CampaignId),
+		Desc:      fmt.Sprintf("Payment id %s on charge for perk %d of campaign %d.", payment.Id, payment.PerkId, payment.CampaignId),
 		Email:     payment.ContactEmail,
 		Statement: fmt.Sprintf("Campaign(%s)", campaign.Name),
 		Source:    sourceParams,
