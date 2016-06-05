@@ -5,6 +5,7 @@
  * funder.setCampaignsPath("/campaigns"); //Optional, default: "/campaigns"
  * funder.setPerksPath("/perks"); //Optional, default: "/perks"
  * funder.setPaymentsPath("/payments"); //Optional, default: "/payments"
+ * funder.setAdvertisementsPath("/advertisements"); //Optional, default: "/advertisements"
  *
  * funder.getCampaign(params); //Synchronous
  * funder.getCampaign(params, //Asynchronous
@@ -34,6 +35,12 @@
  * funder.getPayment(params, //Asynchronous
  *      function(response, status, payment) {}, //Success
  *      function(response, status, payment) {}  //Error
+ * );
+ *
+ * funder.getAdvertisements(params); //Synchronous
+ * funder.getAdvertisements(params, //Asynchronous
+ *      function(response, status, advertisements) {}, //Success
+ *      function(response, status, advertisements) {}  //Error
  * );
  *
  */
@@ -107,6 +114,7 @@ function Funder()
     this.campaignsPath = "/campaigns";
     this.perksPath = "/perks";
     this.paymentsPath = "/payments";
+    this.advertisementsPath = "/advertisements";
 };
 
 Funder.prototype.setUrl = function(url) {
@@ -141,6 +149,14 @@ Funder.prototype.getPaymentsPath = function() {
     return this.paymentsPath;
 };
 
+Funder.prototype.setAdvertisementsPath = function(advertisementsPath) {
+    this.advertisementsPath = advertisementsPath;
+};
+
+Funder.prototype.getAdvertisementsPath = function() {
+    return this.advertisementsPath ;
+};
+
 Funder.prototype.getCampaign = function(params, successFunc, errorFunc) {
     return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getCampaignsPath(), "GET");
 };
@@ -159,6 +175,10 @@ Funder.prototype.updatePayment = function(params, successFunc, errorFunc) {
 
 Funder.prototype.getPayment = function(params, successFunc, errorFunc) {
     return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPaymentsPath(), "GET");
+};
+
+Funder.prototype.getAdvertisements = function(params, successFunc, errorFunc) {
+    return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getAdvertisementsPath(), "GET");
 };
 
 Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url, method) {

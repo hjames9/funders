@@ -64,6 +64,17 @@ function loadFunders()
         $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.available + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + '">Buy perk</button></td></tr>');
         $("#" + value.id).click(buyPerk);
     });
+
+    $('#advertisements').children('li').each(function() {
+        $(this).remove();
+    });
+
+    var advertisementsParams = { "campaign_name" : "alpha" };
+    advertisements = funder.getAdvertisements(advertisementsParams);
+
+    $.each(advertisements, function(index, value) {
+        $('#advertisements').append('<li>' + value.advertiseName + '</li>');
+    });
 };
 
 loadFunders();
