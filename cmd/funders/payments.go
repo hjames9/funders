@@ -194,6 +194,11 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 			message := fmt.Sprintf("Campaign not found with id: %d", payment.CampaignId)
 			errors = addError(errors, []string{"campaignId"}, binding.TypeError, message)
 		}
+
+		if botDetection.IsBot(req) {
+			message := "Go away spambot! We've alerted the authorities"
+			errors = addError(errors, []string{"spambot"}, common.BOT_ERROR, message)
+		}
 	}
 
 	return errors
@@ -276,6 +281,11 @@ func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Re
 				message := fmt.Sprintf("Received account type %s does not match existing payment account type %s", updatePayment.AccountType, updatePayment.payment.AccountType)
 				errors = addError(errors, []string{"accountType"}, binding.TypeError, message)
 			}
+		}
+
+		if botDetection.IsBot(req) {
+			message := "Go away spambot! We've alerted the authorities"
+			errors = addError(errors, []string{"spambot"}, common.BOT_ERROR, message)
 		}
 	}
 

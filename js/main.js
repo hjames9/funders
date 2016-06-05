@@ -2,6 +2,7 @@ function buyPerk(event)
 {
     var funder = new Funder();
     funder.setUrl("http://localhost:3000");
+    funder.addAdhocField("currency", "USD");
 
     var paymentParams = { "campaignId" : "31337",
                           "perkId" : event.target.id,

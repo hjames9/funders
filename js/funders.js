@@ -45,6 +45,11 @@
  *
  */
 
+function getParameterFromNvp(name, value)
+{
+    return "&" + name + "=" + encodeURIComponent(value);
+};
+
 function isBetween(value, min, max)
 {
     return(value >= min && value <= max);
@@ -115,6 +120,8 @@ function Funder()
     this.perksPath = "/perks";
     this.paymentsPath = "/payments";
     this.advertisementsPath = "/advertisements";
+    this.adhocFields = {};
+    this.adhocHeaders = {};
 };
 
 Funder.prototype.setUrl = function(url) {
@@ -181,6 +188,22 @@ Funder.prototype.getAdvertisements = function(params, successFunc, errorFunc) {
     return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getAdvertisementsPath(), "GET");
 };
 
+Funder.prototype.addAdhocField = function(name, value) {
+    this.adhocFields[name] = value;
+};
+
+Funder.prototype.getAdhocFields = function() {
+    return this.adhocFields;
+};
+
+Funder.prototype.addAdhocHeader = function(name, value) {
+    this.adhocHeaders[name] = value;
+};
+
+Funder.prototype.getAdhocHeaders = function() {
+    return this.adhocHeaders;
+};
+
 Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url, method) {
     var xmlHttp = new XMLHttpRequest();
     var async = (null != successFunc || null != errorFunc);
@@ -217,16 +240,33 @@ Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url,
         var methodBody = useMethodBody(method);
         var requestStr = convertJSONToURLEncodedString(params);
 
+        for(var key in this.adhocFields) {
+            if(this.adhocFields.hasOwnProperty(key)) {
+                requestStr += getParameterFromNvp(key, this.adhocFields[key]);
+            }
+        }
+
+        setHeaders = function()
+        {
+            xmlHttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+
+            for(var key in that.adhocHeaders) {
+                if(that.adhocHeaders.hasOwnProperty(key)) {
+                    xmlHttp.setRequestHeader(key, that.adhocHeaders[key]);
+                }
+            }
+        };
+
         if(methodBody)
         {
             xmlHttp.open(method, url, async);
-            xmlHttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            setHeaders();
             xmlHttp.send(requestStr);
         }
         else
         {
             xmlHttp.open(method, url + "?" + requestStr, async);
-            xmlHttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            setHeaders();
             xmlHttp.send();
         }
 
