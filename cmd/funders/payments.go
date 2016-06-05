@@ -167,11 +167,6 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 			errors = addError(errors, []string{"contactEmail"}, binding.TypeError, message)
 		}
 
-		if len(payment.Currency) > 0 && currencies != nil && !currencies[payment.Currency] {
-			message := fmt.Sprintf("Invalid currency \"%s\" specified", payment.Currency)
-			errors = addError(errors, []string{"currency"}, binding.TypeError, message)
-		}
-
 		perk, exists := perks.GetPerk(payment.PerkId)
 		if exists {
 			if !perk.IsAvailable() {
@@ -315,7 +310,6 @@ func getPaymentStates() string {
 }
 
 //Used for validation
-var currencies map[string]bool
 var emailRegex *regexp.Regexp
 var uuidRegex *regexp.Regexp
 var accountTypes map[string]bool

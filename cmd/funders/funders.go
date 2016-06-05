@@ -319,21 +319,6 @@ func main() {
 		log.Fatal("Unable to retrieve payment states from database")
 	}
 
-	//Allowable currencies
-	currenciesStr := os.Getenv("ALLOWABLE_CURRENCIES")
-	if len(currenciesStr) > 0 {
-		currencies = make(map[string]bool)
-
-		currenciesArr := strings.Split(currenciesStr, ",")
-		for _, currency := range currenciesArr {
-			currencies[currency] = true
-		}
-
-		log.Printf("Allowable currencies: %s", currenciesStr)
-	} else {
-		log.Print("Any currency available")
-	}
-
 	//Robot detection field
 	botDetectionFieldLocationStr := common.GetenvWithDefault("BOTDETECT_FIELDLOCATION", "body")
 	botDetectionFieldName := common.GetenvWithDefault("BOTDETECT_FIELDNAME", "spambot")
