@@ -131,6 +131,8 @@ SELECT
     payments.id,
     payments.campaign_id,
     payments.perk_id,
+    campaigns.name AS campaign_name,
+    perks.name AS perk_name,
     account_type,
     name_on_payment,
     full_name,
@@ -154,3 +156,18 @@ ON payments.campaign_id = campaigns.id
 INNER JOIN perks
 ON payments.perk_id = perks.id
 WHERE campaigns.active = TRUE AND perks.active = TRUE;
+
+CREATE VIEW advertisements
+AS
+SELECT
+    campaign_id,
+    campaign_name,
+    perk_id,
+    active_payments.id AS payment_id,
+    full_name,
+    advertise,
+    advertise_other
+FROM active_payments
+INNER JOIN campaign_backers
+ON active_payments.campaign_id = campaign_backers.id
+WHERE active_payments.state = 'success';

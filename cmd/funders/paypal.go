@@ -116,6 +116,7 @@ func executePaypalPayment(updatePayment *UpdatePayment) error {
 	executeResult, err := paypalClient.ExecuteApprovedPayment(updatePayment.PaypalPaymentId, updatePayment.PaypalPayerId)
 	if nil == err {
 		payment.UpdateState("success")
+		advertisements.AddAdvertisement(campaign.Name, payment)
 
 		jsonStr, err := json.Marshal(executeResult)
 		if nil == err {

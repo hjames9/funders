@@ -17,7 +17,9 @@ function buyPerk(event)
                           "address2" : "Apt. 555",
                           "city" : "Bronx",
                           "postalCode" : "10467",
-                          "country" : "US"
+                          "country" : "US",
+                          "advertise" : true,
+                          "advertiseOther" : "Philly Bronx"
     };
 
     payment = funder.makePayment(paymentParams);

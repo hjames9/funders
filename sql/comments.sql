@@ -126,6 +126,8 @@ COMMENT ON RULE "_RETURN" ON active_payments IS 'Internal rule for active_paymen
 COMMENT ON COLUMN active_payments.id IS 'Primary key id of the payments table';
 COMMENT ON COLUMN active_payments.campaign_id IS 'Primary key id of the campaigns table';
 COMMENT ON COLUMN active_payments.perk_id IS 'Primary key id of the perks table';
+COMMENT ON COLUMN active_payments.campaign_name IS 'Name of campaign payment was made for';
+COMMENT ON COLUMN active_payments.perk_name IS 'Name of perk payment was made for';
 COMMENT ON COLUMN active_payments.account_type IS 'The type of method used for payment';
 COMMENT ON COLUMN active_payments.name_on_payment IS 'The name of account owner';
 COMMENT ON COLUMN active_payments.full_name IS 'Full name used for shipping';
@@ -143,4 +145,18 @@ COMMENT ON COLUMN active_payments.advertise IS 'Whether to advertise user''s pay
 COMMENT ON COLUMN active_payments.advertise_other IS 'Use alternate value to advertise user''s payment';
 COMMENT ON COLUMN active_payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN active_payments.payment_processor_used IS 'Payment processor used to process this payment';
+
+-- Advertisements
+
+COMMENT ON VIEW advertisements IS 'Advertisements is the list of successful payments that would not mind advertising supporting the campaign.';
+
+COMMENT ON RULE "_RETURN" ON advertisements IS 'Internal rule for advertisements view';
+
+COMMENT ON COLUMN advertisements.campaign_id IS 'Primary key id of the campaigns table';
+COMMENT ON COLUMN advertisements.campaign_name IS 'Name of campaign payment was made for';
+COMMENT ON COLUMN advertisements.perk_id IS 'Primary key id of the perks table';
+COMMENT ON COLUMN advertisements.payment_id IS 'Primary key of payments table';
+COMMENT ON COLUMN advertisements.full_name IS 'Full name of person that wants to advertise support';
+COMMENT ON COLUMN advertisements.advertise IS 'Determine if payment should be advertised';
+COMMENT ON COLUMN advertisements.advertise_other IS 'Alternate advertisement name to use instead of full_name';
 

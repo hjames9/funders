@@ -185,6 +185,10 @@ func runHttpServer() {
 	martini_.Put(PAYMENTS_URL, binding.Form(UpdatePayment{}), errorHandler, updatePaymentHandler)
 	martini_.Patch(PAYMENTS_URL, binding.Form(UpdatePayment{}), errorHandler, updatePaymentHandler)
 
+	//Advertise payments
+	martini_.Get(ADVERTISEMENTS_URL, getAdvertisementHandler, errorHandler)
+	martini_.Head(ADVERTISEMENTS_URL, getAdvertisementHandler, errorHandler)
+
 	martini_.NotFound(notFoundHandler)
 	martini_.Run()
 }
@@ -426,6 +430,16 @@ func main() {
 	} else {
 		paymentsCache.AddOrReplacePayments(pys)
 		log.Printf("Initialized %d payments", len(pys))
+	}
+
+	//Initialize advertisements
+	ads, err := getAdvertisementsFromDb()
+	if nil != err {
+		log.Print(err)
+		log.Fatal("Could not initialize advertisements")
+	} else {
+		advertisements.AddOrReplaceAdvertisements(ads)
+		log.Printf("Initialized %d advertisements", len(ads))
 	}
 
 	//Signal handler
