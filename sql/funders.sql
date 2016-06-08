@@ -152,7 +152,7 @@ LEFT OUTER JOIN
     (SELECT campaign_id,
             perk_id,
             COUNT(1) AS num_pledged
-    FROM payments
+    FROM pledges
     GROUP BY campaign_id, perk_id) pledged
 ON perks.campaign_id = pledged.campaign_id
     AND perks.id = pledged.perk_id
