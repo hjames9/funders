@@ -52,6 +52,7 @@ func (ads *Advertisements) AddAdvertisementFromPayment(campaignName string, paym
 	if payment.Advertise && payment.State == "success" {
 		var advertisement Advertisement
 
+		advertisement.Type = "payment"
 		advertisement.CampaignId = payment.CampaignId
 		advertisement.CampaignName = campaignName
 		advertisement.PerkId = payment.PerkId
@@ -74,6 +75,7 @@ func (ads *Advertisements) AddAdvertisementFromPledge(campaignName string, pledg
 	if pledge.Advertise {
 		var advertisement Advertisement
 
+		advertisement.Type = "pledge"
 		advertisement.CampaignId = pledge.CampaignId
 		advertisement.CampaignName = campaignName
 		advertisement.PerkId = pledge.PerkId

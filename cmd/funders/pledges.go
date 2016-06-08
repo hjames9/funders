@@ -35,6 +35,7 @@ type Pledge struct {
 func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	errors = validateSizeLimit(pledge.ContactEmail, "contactEmail", stringSizeLimit, errors)
 	errors = validateSizeLimit(pledge.PhoneNumber, "phoneNumber", stringSizeLimit, errors)
+	errors = validateSizeLimit(pledge.AdvertiseName, "advertiseName", stringSizeLimit, errors)
 
 	if len(errors) == 0 {
 		if len(pledge.ContactEmail) == 0 && len(pledge.PhoneNumber) == 0 {
