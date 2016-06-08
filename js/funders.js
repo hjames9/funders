@@ -5,6 +5,7 @@
  * funder.setCampaignsPath("/campaigns"); //Optional, default: "/campaigns"
  * funder.setPerksPath("/perks"); //Optional, default: "/perks"
  * funder.setPaymentsPath("/payments"); //Optional, default: "/payments"
+ * funder.setPledgesPath("/pledges"); //Optional, default: "/pledges"
  * funder.setAdvertisementsPath("/advertisements"); //Optional, default: "/advertisements"
  *
  * funder.getCampaign(params); //Synchronous
@@ -35,6 +36,12 @@
  * funder.getPayment(params, //Asynchronous
  *      function(response, status, payment) {}, //Success
  *      function(response, status, payment) {}  //Error
+ * );
+ *
+ * funder.makePledge(params); //Synchronous
+ * funder.makePledge(params, //Asynchronous
+ *      function(response, status, pledge) {}, //Success
+ *      function(response, status, pledge) {}  //Error
  * );
  *
  * funder.getAdvertisements(params); //Synchronous
@@ -119,6 +126,7 @@ function Funder()
     this.campaignsPath = "/campaigns";
     this.perksPath = "/perks";
     this.paymentsPath = "/payments";
+    this.pledgesPath = "/pledges";
     this.advertisementsPath = "/advertisements";
     this.adhocFields = {};
     this.adhocHeaders = {};
@@ -146,6 +154,14 @@ Funder.prototype.setPerksPath = function(perksPath) {
 
 Funder.prototype.getPerksPath = function() {
     return this.perksPath;
+};
+
+Funder.prototype.setPledgesPath = function(pledgesPath) {
+    this.pledgesPath = pledgesPath;
+};
+
+Funder.prototype.getPledgesPath = function() {
+    return this.pledgesPath;
 };
 
 Funder.prototype.setPaymentsPath = function(paymentsPath) {
@@ -182,6 +198,10 @@ Funder.prototype.updatePayment = function(params, successFunc, errorFunc) {
 
 Funder.prototype.getPayment = function(params, successFunc, errorFunc) {
     return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPaymentsPath(), "GET");
+};
+
+Funder.prototype.makePledge = function(params, successFunc, errorFunc) {
+    return this.internalRequest(params, successFunc, errorFunc, this.getUrl() + this.getPledgesPath(), "POST");
 };
 
 Funder.prototype.getAdvertisements = function(params, successFunc, errorFunc) {

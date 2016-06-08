@@ -4,8 +4,10 @@ function buyPerk(event)
     funder.setUrl("http://localhost:3000");
     funder.addAdhocField("currency", "USD");
 
+    var perkId = event.target.id.substring(0, event.target.id.length - 1);
+
     var paymentParams = { "campaignId" : "31337",
-                          "perkId" : event.target.id,
+                          "perkId" : perkId,
                           "accountType" : "credit_card",
                           "nameOnPayment" : "John Doe",
                           //"creditCardAccountNumber" : "4000000000000002", //Reject number
@@ -35,6 +37,32 @@ function buyPerk(event)
     }
 };
 
+function pledgePerk(event)
+{
+    var funder = new Funder();
+    funder.setUrl("http://localhost:3000");
+    funder.addAdhocField("currency", "USD");
+
+    var perkId = event.target.id.substring(0, event.target.id.length - 1);
+
+    var pledgeParams = { "campaignId" : "31337",
+                         "perkId" : perkId,
+                         "contactEmail" : "elmer.fudd@gmail.com",
+                         "phoneNumber" : "555-718-2122"
+                       };
+
+    pledge = funder.makePledge(pledgeParams);
+
+    if(isSuccess(pledge.Code)) {
+        setTimeout(function() {
+            $("#purchaseStatus").text("Success pledging perk: " + pledge.Message);
+            loadFunders();
+        }, 6000);
+    } else {
+        $("#purchaseStatus").text("Error pledging perk: " + pledge.Message);
+    }
+};
+
 function loadFunders()
 {
     var funder = new Funder();
@@ -48,6 +76,8 @@ function loadFunders()
     $('#campaignName').text(campaign.name);
     $('#numBackers').text(campaign.numBackers);
     $('#numRaised').text(campaign.numRaised);
+    $('#numPledgers').text(campaign.numPledgers);
+    $('#numPledged').text(campaign.numPledged);
     $('#goal').text(campaign.goal);
     $('#startDate').text(campaign.startDate);
     $('#endDate').text(campaign.endDate);
@@ -62,8 +92,9 @@ function loadFunders()
     });
 
     $.each(perks, function(index, value) {
-        $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.available + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + '">Buy perk</button></td></tr>');
-        $("#" + value.id).click(buyPerk);
+        $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.numPledged + '</td><td>' + value.available + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + 'b">Buy perk</button></td>' + '<td><button id="' + value.id + 'p">Pledge perk</button></td></tr>');
+        $("#" + value.id + "b").click(buyPerk);
+        $("#" + value.id + "p").click(pledgePerk);
     });
 
     $('#advertisements').children('li').each(function() {
