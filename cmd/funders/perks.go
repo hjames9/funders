@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	GET_ALL_PERKS_QUERY = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = TRUE"
-	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed FROM funders.perk_claims WHERE active = TRUE AND campaign_name = $1"
+	GET_ALL_PERKS_QUERY = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed, num_pledged FROM funders.perk_claims WHERE active = TRUE"
+	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed, num_pledged FROM funders.perk_claims WHERE active = TRUE AND campaign_name = $1"
 	PERKS_URL           = "/perks"
 )
 
@@ -31,17 +31,27 @@ func (perk *Perk) IncrementNumClaimed(amount int64) int64 {
 	return perk.NumClaimed
 }
 
+func (perk *Perk) IncrementNumPledged(amount int64) int64 {
+	perk.Lock.Lock()
+	defer perk.Lock.Unlock()
+	perk.NumPledged += amount
+	return perk.NumPledged
+}
+
 func (perk *Perk) MarshalJSON() ([]byte, error) {
 	perk.Lock.RLock()
 	numClaimed := perk.NumClaimed
+	numPledged := perk.NumPledged
 	perk.Lock.RUnlock()
 
 	type MyPerk Perk
 	return json.Marshal(&struct {
 		NumClaimed int64 `json:"numClaimed"`
+		NumPledged int64 `json:"numPledged"`
 		*MyPerk
 	}{
 		NumClaimed: numClaimed,
+		NumPledged: numPledged,
 		MyPerk:     (*MyPerk)(perk),
 	})
 }
@@ -111,7 +121,7 @@ func getPerksFromDb(args ...string) ([]*Perk, error) {
 	var perks []*Perk
 	for rows.Next() {
 		var perk Perk
-		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.Available, &perk.ShipDate, &perk.NumClaimed)
+		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.Available, &perk.ShipDate, &perk.NumClaimed, &perk.NumPledged)
 		if nil == err {
 			perks = append(perks, &perk)
 		} else {

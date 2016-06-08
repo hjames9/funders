@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
-	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, num_raised, num_backers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
+	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, num_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
+	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, num_raised, num_backers, num_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
 	CAMPAIGN_URL            = "/campaigns"
 )
 
@@ -34,6 +34,20 @@ func (campaign *Campaign) IncrementNumBackers(amount int64) int64 {
 	return campaign.NumBackers
 }
 
+func (campaign *Campaign) IncrementNumPledged(amount float64) float64 {
+	campaign.Lock.Lock()
+	defer campaign.Lock.Unlock()
+	campaign.NumPledged += amount
+	return campaign.NumPledged
+}
+
+func (campaign *Campaign) IncrementNumPledgers(amount int64) int64 {
+	campaign.Lock.Lock()
+	defer campaign.Lock.Unlock()
+	campaign.NumPledgers += amount
+	return campaign.NumPledgers
+}
+
 func (campaign *Campaign) HasStarted() bool {
 	return time.Now().After(campaign.StartDate)
 }
@@ -46,17 +60,23 @@ func (campaign *Campaign) MarshalJSON() ([]byte, error) {
 	campaign.Lock.RLock()
 	numRaised := campaign.NumRaised
 	numBackers := campaign.NumBackers
+	numPledged := campaign.NumPledged
+	numPledgers := campaign.NumPledgers
 	campaign.Lock.RUnlock()
 
 	type MyCampaign Campaign
 	return json.Marshal(&struct {
-		NumRaised  float64 `json:"numRaised"`
-		NumBackers int64   `json:"numBackers"`
+		NumRaised   float64 `json:"numRaised"`
+		NumBackers  int64   `json:"numBackers"`
+		NumPledged  float64 `json:"numPledged"`
+		NumPledgers int64   `json:"numPledgers"`
 		*MyCampaign
 	}{
-		NumRaised:  numRaised,
-		NumBackers: numBackers,
-		MyCampaign: (*MyCampaign)(campaign),
+		NumRaised:   numRaised,
+		NumBackers:  numBackers,
+		NumPledged:  numPledged,
+		NumPledgers: numPledgers,
+		MyCampaign:  (*MyCampaign)(campaign),
 	})
 }
 
@@ -117,7 +137,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 	var campaigns []*Campaign
 	for rows.Next() {
 		var campaign Campaign
-		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.NumPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 		if nil == err {
 			campaigns = append(campaigns, &campaign)
 		} else {
@@ -134,7 +154,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 
 func getCampaignFromDb(name string) (Campaign, error) {
 	var campaign Campaign
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.NumPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 	return campaign, err
 }
 

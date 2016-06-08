@@ -185,6 +185,9 @@ func runHttpServer() {
 	martini_.Put(PAYMENTS_URL, binding.Form(UpdatePayment{}), errorHandler, updatePaymentHandler)
 	martini_.Patch(PAYMENTS_URL, binding.Form(UpdatePayment{}), errorHandler, updatePaymentHandler)
 
+	//Accept pledges
+	martini_.Post(PLEDGES_URL, binding.Form(Pledge{}), errorHandler, makePledgeHandler)
+
 	//Advertise payments
 	martini_.Get(ADVERTISEMENTS_URL, getAdvertisementHandler, errorHandler)
 	martini_.Head(ADVERTISEMENTS_URL, getAdvertisementHandler, errorHandler)
@@ -384,6 +387,10 @@ func main() {
 	updatePaymentBatchProcessor = common.NewBatchProcessor(processUpdatePayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
 	updatePaymentBatchProcessor.Start()
 
+	//Update payment processor
+	pledgeBatchProcessor = common.NewBatchProcessor(processPledge, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
+	pledgeBatchProcessor.Start()
+
 	log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
 	log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
 
@@ -443,6 +450,11 @@ func main() {
 		if nil != updatePaymentBatchProcessor {
 			updatePaymentBatchProcessor.Stop()
 			log.Print("Payment update batch processor shut down")
+		}
+
+		if nil != pledgeBatchProcessor {
+			pledgeBatchProcessor .Stop()
+			log.Print("Pledge batch processor shut down")
 		}
 
 		os.Exit(0)

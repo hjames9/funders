@@ -19,6 +19,8 @@ type Campaign struct {
 	Goal        float64      `json:"goal"`
 	NumRaised   float64      `json:"-"`
 	NumBackers  int64        `json:"-"`
+	NumPledged  float64      `json:"-"`
+	NumPledgers int64        `json:"-"`
 	StartDate   time.Time    `json:"startDate"`
 	EndDate     time.Time    `json:"endDate"`
 	Flexible    bool         `json:"flexible"`
@@ -36,6 +38,7 @@ type Perk struct {
 	Available    int64        `json:"available"`
 	ShipDate     time.Time    `json:"shipDate"`
 	NumClaimed   int64        `json:"-"`
+	NumPledged   int64        `json:"-"`
 	Lock         sync.RWMutex `json:"-"`
 }
 
