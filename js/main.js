@@ -107,7 +107,7 @@ function loadFunders()
     advertisements = funder.getAdvertisements(advertisementsParams);
 
     $.each(advertisements, function(index, value) {
-        $('#advertisements').append('<li>' + value.advertiseName + '</li>');
+        $('#advertisements').append('<li>' + 'Type: ' + value.type + ' for ' + value.advertiseName + '</li>');
     });
 };
 
