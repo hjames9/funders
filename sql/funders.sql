@@ -82,12 +82,16 @@ CREATE TABLE pledges
     perk_id INT8 NOT NULL REFERENCES perks (id) ON DELETE CASCADE,
     contact_email VARCHAR NULL,
     phone_number VARCHAR NULL,
+    contact_opt_in BOOLEAN NOT NULL DEFAULT(true),
     amount NUMERIC NOT NULL,
     currency VARCHAR NOT NULL,
+    advertise BOOLEAN NOT NULL DEFAULT(true),
+    advertise_name VARCHAR NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
-    CHECK(contact_email IS NOT NULL OR phone_number IS NOT NULL)
+    CHECK(contact_email IS NOT NULL OR phone_number IS NOT NULL),
+    CHECK(advertise = FALSE OR (advertise = TRUE AND advertise_name IS NOT NULL))
 );
 
 CREATE VIEW campaign_backers
@@ -201,7 +205,10 @@ SELECT
     amount,
     pledges.currency,
     contact_email,
-    phone_number
+    phone_number,
+    contact_opt_in,
+    advertise,
+    advertise_name
 FROM pledges
 INNER JOIN campaigns
 ON pledges.campaign_id = campaigns.id
@@ -212,14 +219,26 @@ WHERE campaigns.active = TRUE AND perks.active = TRUE;
 CREATE VIEW advertisements
 AS
 SELECT
+    'payment' AS type,
     campaign_id,
     campaign_name,
     perk_id,
-    active_payments.id AS payment_id,
-    full_name,
+    active_payments.id AS payment_or_pledge_id,
     advertise,
-    advertise_other
+    CASE WHEN advertise_other IS NULL THEN full_name ELSE advertise_other END AS advertise_name
 FROM active_payments
 INNER JOIN campaign_backers
 ON active_payments.campaign_id = campaign_backers.id
-WHERE active_payments.state = 'success';
+WHERE active_payments.state = 'success'
+UNION ALL
+SELECT
+    'pledge',
+    campaign_id,
+    campaign_name,
+    perk_id,
+    active_pledges.id,
+    advertise,
+    advertise_name
+FROM active_pledges
+INNER JOIN campaign_backers
+ON active_pledges.campaign_id = campaign_backers.id;

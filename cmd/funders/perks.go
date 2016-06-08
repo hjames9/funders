@@ -21,7 +21,7 @@ const (
 type Perk common.Perk
 
 func (perk *Perk) IsAvailable() bool {
-	return perk.Available > perk.NumClaimed
+	return perk.Available > (perk.NumClaimed + perk.NumPledged)
 }
 
 func (perk *Perk) IncrementNumClaimed(amount int64) int64 {

@@ -15,18 +15,21 @@ import (
 )
 
 const (
-	ADD_PLEDGE_QUERY = "INSERT INTO funders.pledges(id, campaign_id, perk_id, contact_email, phone_number, amount, currency, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id"
+	ADD_PLEDGE_QUERY = "INSERT INTO funders.pledges(id, campaign_id, perk_id, contact_email, phone_number, contact_opt_in, amount, currency, advertise, advertise_name, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id"
 	PLEDGES_URL      = "/pledges"
 )
 
 type Pledge struct {
-	Id           string
-	CampaignId   int64  `form:"campaignId" binding:"required"`
-	PerkId       int64  `form:"perkId" binding:"required"`
-	ContactEmail string `form:"contactEmail"`
-	PhoneNumber  string `form:"phoneNumber"`
-	Amount       float64
-	Currency     string
+	Id            string
+	CampaignId    int64  `form:"campaignId" binding:"required"`
+	PerkId        int64  `form:"perkId" binding:"required"`
+	ContactEmail  string `form:"contactEmail"`
+	PhoneNumber   string `form:"phoneNumber"`
+	ContactOptIn  bool   `form:"contactOptIn"`
+	Amount        float64
+	Currency      string
+	Advertise     bool   `form:"advertise"`
+	AdvertiseName string `form:"advertiseName"`
 }
 
 func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding.Errors {
@@ -43,10 +46,14 @@ func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding
 			errors = addError(errors, []string{"contactEmail"}, binding.TypeError, message)
 		}
 
+		if pledge.Advertise && len(pledge.AdvertiseName) == 0 {
+			errors = addError(errors, []string{"advertise", "advertiseName"}, binding.TypeError, "Allowing advertisement without providing name")
+		}
+
 		perk, exists := perks.GetPerk(pledge.PerkId)
 		if exists {
 			if !perk.IsAvailable() {
-				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.Available, perk.NumClaimed)
+				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed or pledged", perk.NumClaimed+perk.NumPledged, perk.Available)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
 			} else {
 				pledge.Amount = perk.Price
@@ -132,12 +139,9 @@ func addPledge(pledge *Pledge, statement *sql.Stmt) (string, error) {
 
 	contactEmail := common.CreateSqlString(pledge.ContactEmail)
 	phoneNumber := common.CreateSqlString(pledge.PhoneNumber)
+	advertiseName := common.CreateSqlString(pledge.AdvertiseName)
 
-	if nil == statement {
-		err = db.QueryRow(ADD_PLEDGE_QUERY, pledge.Id, pledge.CampaignId, pledge.PerkId, contactEmail, phoneNumber, pledge.Amount, pledge.Currency, time.Now(), time.Now()).Scan(&lastInsertId)
-	} else {
-		err = statement.QueryRow(pledge.Id, pledge.CampaignId, pledge.PerkId, contactEmail, phoneNumber, pledge.Amount, pledge.Currency, time.Now(), time.Now()).Scan(&lastInsertId)
-	}
+	err = statement.QueryRow(pledge.Id, pledge.CampaignId, pledge.PerkId, contactEmail, phoneNumber, pledge.ContactOptIn, pledge.Amount, pledge.Currency, pledge.Advertise, advertiseName, time.Now(), time.Now()).Scan(&lastInsertId)
 
 	if nil == err {
 		log.Printf("New pledge id = %s", lastInsertId)
@@ -158,6 +162,7 @@ func makePledge(pledge *Pledge) {
 	if exists {
 		campaign.IncrementNumPledged(pledge.Amount)
 		campaign.IncrementNumPledgers(1)
+		advertisements.AddAdvertisementFromPledge(campaign.Name, pledge)
 	} else {
 		log.Printf("Campaign %d not found", pledge.CampaignId)
 	}

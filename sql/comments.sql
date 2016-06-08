@@ -91,8 +91,11 @@ COMMENT ON COLUMN pledges.campaign_id IS 'Reference to campaign that the pledge 
 COMMENT ON COLUMN pledges.perk_id IS 'Reference to perk that the pledge is associated with';
 COMMENT ON COLUMN pledges.contact_email IS 'Contact e-mail of pledger';
 COMMENT ON COLUMN pledges.phone_number IS 'Phone number of pledger';
+COMMENT ON COLUMN pledges.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
 COMMENT ON COLUMN pledges.amount IS 'Amount of the pledge';
 COMMENT ON COLUMN pledges.currency IS 'Currency of the pledge';
+COMMENT ON COLUMN pledges.advertise IS 'Whether to advertise user''s pledge';
+COMMENT ON COLUMN pledges.advertise_name IS 'Name to advertise user''s pledge';
 COMMENT ON COLUMN pledges.created_at IS 'Timestamp of pledge creation.';
 COMMENT ON COLUMN pledges.updated_at IS 'Timestamp of last time pledge was updated';
 
@@ -101,6 +104,7 @@ COMMENT ON CONSTRAINT pledges_campaign_id_fkey ON pledges IS 'Foreign key constr
 COMMENT ON CONSTRAINT pledges_perk_id_fkey ON pledges IS 'Foreign key constraint for perks id column';
 COMMENT ON CONSTRAINT pledges_contact_email_check ON pledges IS 'Check constraint for pledges table to make sure contact email is valid if provided';
 COMMENT ON CONSTRAINT pledges_check ON pledges IS 'Check constraint for pledges table to make sure at least one of contact email or phone number is provided';
+COMMENT ON CONSTRAINT pledges_check1 ON pledges IS 'Check constraint for pledges table to make sure an advertised name is provided if advertisement is requested';
 
 -- Campaign backers
 
@@ -184,6 +188,9 @@ COMMENT ON COLUMN active_pledges.amount IS 'Amount of the pledge';
 COMMENT ON COLUMN active_pledges.currency IS 'Currency of the pledge';
 COMMENT ON COLUMN active_pledges.contact_email IS 'Contact e-mail of pledger';
 COMMENT ON COLUMN active_pledges.phone_number IS 'Contact phone number of pledger';
+COMMENT ON COLUMN active_pledges.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
+COMMENT ON COLUMN active_pledges.advertise IS 'Whether to advertise user''s pledge';
+COMMENT ON COLUMN active_pledges.advertise_name IS 'Use alternate value to advertise user''s pledge';
 
 -- Advertisements
 
@@ -191,11 +198,10 @@ COMMENT ON VIEW advertisements IS 'Advertisements is the list of successful paym
 
 COMMENT ON RULE "_RETURN" ON advertisements IS 'Internal rule for advertisements view';
 
+COMMENT ON COLUMN advertisements.type IS 'Advertisement is either from a payment or pledge';
 COMMENT ON COLUMN advertisements.campaign_id IS 'Primary key id of the campaigns table';
-COMMENT ON COLUMN advertisements.campaign_name IS 'Name of campaign payment was made for';
+COMMENT ON COLUMN advertisements.campaign_name IS 'Name of campaign payment or pledge was made for';
 COMMENT ON COLUMN advertisements.perk_id IS 'Primary key id of the perks table';
-COMMENT ON COLUMN advertisements.payment_id IS 'Primary key of payments table';
-COMMENT ON COLUMN advertisements.full_name IS 'Full name of person that wants to advertise support';
+COMMENT ON COLUMN advertisements.payment_or_pledge_id IS 'Primary key of payments or pledges table';
 COMMENT ON COLUMN advertisements.advertise IS 'Determine if payment should be advertised';
-COMMENT ON COLUMN advertisements.advertise_other IS 'Alternate advertisement name to use instead of full_name';
-
+COMMENT ON COLUMN advertisements.advertise_name IS 'Name of person that wants to advertise support';

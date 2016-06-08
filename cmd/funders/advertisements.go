@@ -12,17 +12,18 @@ import (
 )
 
 const (
-	GET_ALL_ADVERTISEMENTS_QUERY = "SELECT campaign_id, campaign_name, perk_id, payment_id, full_name, advertise_other FROM funders.advertisements WHERE advertise = TRUE"
-	GET_ADVERTISEMENTS_QUERY     = "SELECT campaign_id, campaign_name, perk_id, payment_id, full_name, advertise_other FROM funders.advertisements WHERE advertise = TRUE AND campaign_name = $1"
+	GET_ALL_ADVERTISEMENTS_QUERY = "SELECT type, campaign_id, campaign_name, perk_id, payment_or_pledge_id, advertise_name FROM funders.advertisements WHERE advertise = TRUE"
+	GET_ADVERTISEMENTS_QUERY     = "SELECT type, campaign_id, campaign_name, perk_id, payment_or_pledge_id, advertise_name FROM funders.advertisements WHERE advertise = TRUE AND campaign_name = $1"
 	ADVERTISEMENTS_URL           = "/advertisements"
 )
 
 type Advertisement struct {
-	CampaignId    int64  `json:"campaignId"`
-	CampaignName  string `json:"campaignName"`
-	PerkId        int64  `json:"perkId"`
-	PaymentId     string `json:"paymentId"`
-	AdvertiseName string `json:"advertiseName"`
+	Type              string `json:"type"`
+	CampaignId        int64  `json:"campaignId"`
+	CampaignName      string `json:"campaignName"`
+	PerkId            int64  `json:"perkId"`
+	PaymentOrPledgeId string `json:"paymentOrPledgeId"`
+	AdvertiseName     string `json:"advertiseName"`
 }
 
 type Advertisements struct {
@@ -47,14 +48,14 @@ func (ads *Advertisements) AddOrReplaceAdvertisements(advertisements []*Advertis
 	}
 }
 
-func (ads *Advertisements) AddAdvertisement(campaignName string, payment *Payment) {
+func (ads *Advertisements) AddAdvertisementFromPayment(campaignName string, payment *Payment) {
 	if payment.Advertise && payment.State == "success" {
 		var advertisement Advertisement
 
 		advertisement.CampaignId = payment.CampaignId
 		advertisement.CampaignName = campaignName
 		advertisement.PerkId = payment.PerkId
-		advertisement.PaymentId = payment.Id
+		advertisement.PaymentOrPledgeId = payment.Id
 
 		advertiseOther := strings.TrimSpace(payment.AdvertiseOther)
 		if len(advertiseOther) > 0 {
@@ -62,6 +63,22 @@ func (ads *Advertisements) AddAdvertisement(campaignName string, payment *Paymen
 		} else {
 			advertisement.AdvertiseName = payment.FullName
 		}
+
+		ads.lock.Lock()
+		defer ads.lock.Unlock()
+		ads.nameValues[advertisement.CampaignName] = append(ads.nameValues[advertisement.CampaignName], &advertisement)
+	}
+}
+
+func (ads *Advertisements) AddAdvertisementFromPledge(campaignName string, pledge *Pledge) {
+	if pledge.Advertise {
+		var advertisement Advertisement
+
+		advertisement.CampaignId = pledge.CampaignId
+		advertisement.CampaignName = campaignName
+		advertisement.PerkId = pledge.PerkId
+		advertisement.PaymentOrPledgeId = pledge.Id
+		advertisement.AdvertiseName = pledge.AdvertiseName
 
 		ads.lock.Lock()
 		defer ads.lock.Unlock()
@@ -102,12 +119,8 @@ func getAdvertisementsFromDb(args ...string) ([]*Advertisement, error) {
 	var advertisements []*Advertisement
 	for rows.Next() {
 		var advertisement Advertisement
-		var advertiseOther sql.NullString
-		err = rows.Scan(&advertisement.CampaignId, &advertisement.CampaignName, &advertisement.PerkId, &advertisement.PaymentId, &advertisement.AdvertiseName, &advertiseOther)
+		err = rows.Scan(&advertisement.Type, &advertisement.CampaignId, &advertisement.CampaignName, &advertisement.PerkId, &advertisement.PaymentOrPledgeId, &advertisement.AdvertiseName)
 		if nil == err {
-			if advertiseOther.Valid {
-				advertisement.AdvertiseName = advertiseOther.String
-			}
 			advertisements = append(advertisements, &advertisement)
 		} else {
 			break

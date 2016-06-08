@@ -453,7 +453,7 @@ func main() {
 		}
 
 		if nil != pledgeBatchProcessor {
-			pledgeBatchProcessor .Stop()
+			pledgeBatchProcessor.Stop()
 			log.Print("Pledge batch processor shut down")
 		}
 

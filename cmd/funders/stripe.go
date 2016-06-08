@@ -96,7 +96,7 @@ func makeStripePayment(payment *Payment) error {
 			if campaignExists {
 				campaign.IncrementNumRaised(payment.Amount)
 				campaign.IncrementNumBackers(1)
-				advertisements.AddAdvertisement(campaign.Name, payment)
+				advertisements.AddAdvertisementFromPayment(campaign.Name, payment)
 			}
 
 			if perkExists {

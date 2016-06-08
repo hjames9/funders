@@ -48,7 +48,9 @@ function pledgePerk(event)
     var pledgeParams = { "campaignId" : "31337",
                          "perkId" : perkId,
                          "contactEmail" : "elmer.fudd@gmail.com",
-                         "phoneNumber" : "555-718-2122"
+                         "phoneNumber" : "555-718-2122",
+                         "advertise" : true,
+                         "advertiseName" : "Philly Queens"
                        };
 
     pledge = funder.makePledge(pledgeParams);

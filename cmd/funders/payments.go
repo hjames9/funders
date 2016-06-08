@@ -170,7 +170,7 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 		perk, exists := perks.GetPerk(payment.PerkId)
 		if exists {
 			if !perk.IsAvailable() {
-				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.Available, perk.NumClaimed)
+				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed or pledged", perk.NumClaimed+perk.NumPledged, perk.Available)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
 			} else {
 				payment.Amount = perk.Price
@@ -408,11 +408,7 @@ func addPayment(payment *Payment, statement *sql.Stmt) (string, error) {
 	contactEmail := common.CreateSqlString(payment.ContactEmail)
 	advertiseOther := common.CreateSqlString(payment.AdvertiseOther)
 
-	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
-	} else {
-		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
-	}
+	err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&lastInsertId)
 
 	if nil == err {
 		log.Printf("New payment id = %s", lastInsertId)
