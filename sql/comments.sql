@@ -82,6 +82,26 @@ COMMENT ON CONSTRAINT payments_campaign_id_fkey ON payments IS 'Foreign key cons
 COMMENT ON CONSTRAINT payments_perk_id_fkey ON payments IS 'Foreign key constraint for perks id column';
 COMMENT ON CONSTRAINT payments_contact_email_check ON payments IS 'Check constraint for payments table to make sure contact email is valid if provided';
 
+-- Pledges
+
+COMMENT ON TABLE pledges IS 'Pledges table contains all the pledged donations for the crowdfunding campaigns';
+
+COMMENT ON COLUMN pledges.id IS 'Primary key id of the payments table';
+COMMENT ON COLUMN pledges.campaign_id IS 'Reference to campaign that the pledge is associated with';
+COMMENT ON COLUMN pledges.perk_id IS 'Reference to perk that the pledge is associated with';
+COMMENT ON COLUMN pledges.contact_email IS 'Contact e-mail of pledger';
+COMMENT ON COLUMN pledges.phone_number IS 'Phone number of pledger';
+COMMENT ON COLUMN pledges.amount IS 'Amount of the pledge';
+COMMENT ON COLUMN pledges.currency IS 'Currency of the pledge';
+COMMENT ON COLUMN pledges.created_at IS 'Timestamp of pledge creation.';
+COMMENT ON COLUMN pledges.updated_at IS 'Timestamp of last time pledge was updated';
+
+COMMENT ON CONSTRAINT pledges_pkey ON pledges IS 'Primary key constraint for pledges id column';
+COMMENT ON CONSTRAINT pledges_campaign_id_fkey ON pledges IS 'Foreign key constraint for campaigns id column';
+COMMENT ON CONSTRAINT pledges_perk_id_fkey ON pledges IS 'Foreign key constraint for perks id column';
+COMMENT ON CONSTRAINT pledges_contact_email_check ON pledges IS 'Check constraint for pledges table to make sure contact email is valid if provided';
+COMMENT ON CONSTRAINT pledges_check ON pledges IS 'Check constraint for pledges table to make sure at least one of contact email or phone number is provided';
+
 -- Campaign backers
 
 COMMENT ON VIEW campaign_backers IS 'Campaign backers is the campaigns table with aggregated data showing the amount of money raised and number of backers sourced from the payments table';
@@ -94,6 +114,8 @@ COMMENT ON COLUMN campaign_backers.description IS 'Description of campaigns tabl
 COMMENT ON COLUMN campaign_backers.goal IS 'Monetary goal of campaigns table';
 COMMENT ON COLUMN campaign_backers.num_raised IS 'Amount of money raised in the campaign';
 COMMENT ON COLUMN campaign_backers.num_backers IS 'Number of backers in the campaign';
+COMMENT ON COLUMN campaign_backers.num_pledged IS 'Amount of money pledged in the campaign';
+COMMENT ON COLUMN campaign_backers.num_pledgers IS 'Number of pledgers in the campaign';
 COMMENT ON COLUMN campaign_backers.start_date IS 'Start date of the campaign';
 COMMENT ON COLUMN campaign_backers.end_date IS 'End date of the campaign';
 COMMENT ON COLUMN campaign_backers.flexible IS 'Flag if campaign is flexible or not.  Flexible is if campaign is all or none';
@@ -115,6 +137,7 @@ COMMENT ON COLUMN perk_claims.currency IS 'Currency of the perk';
 COMMENT ON COLUMN perk_claims.available IS 'Amount of available items for the perk';
 COMMENT ON COLUMN perk_claims.ship_date IS 'Ship date of the perk';
 COMMENT ON COLUMN perk_claims.num_claimed IS 'Number of items claimed for the perk';
+COMMENT ON COLUMN perk_claims.num_pledged IS 'Number of items pledged for the perk';
 COMMENT ON COLUMN perk_claims.active IS 'Flag if perk is active or not';
 
 -- Active payments
@@ -145,6 +168,22 @@ COMMENT ON COLUMN active_payments.advertise IS 'Whether to advertise user''s pay
 COMMENT ON COLUMN active_payments.advertise_other IS 'Use alternate value to advertise user''s payment';
 COMMENT ON COLUMN active_payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN active_payments.payment_processor_used IS 'Payment processor used to process this payment';
+
+-- Active pledges
+
+COMMENT ON VIEW active_pledges IS 'Active pledges is the pledges table but from only active campaigns and perks';
+
+COMMENT ON RULE "_RETURN" ON active_pledges IS 'Internal rule for active_pledges view';
+
+COMMENT ON COLUMN active_pledges.id IS 'Primary key id of the pledges table';
+COMMENT ON COLUMN active_pledges.campaign_id IS 'Primary key id of the campaigns table';
+COMMENT ON COLUMN active_pledges.perk_id IS 'Primary key id of the perks table';
+COMMENT ON COLUMN active_pledges.campaign_name IS 'Name of campaign payment was made for';
+COMMENT ON COLUMN active_pledges.perk_name IS 'Name of perk payment was made for';
+COMMENT ON COLUMN active_pledges.amount IS 'Amount of the pledge';
+COMMENT ON COLUMN active_pledges.currency IS 'Currency of the pledge';
+COMMENT ON COLUMN active_pledges.contact_email IS 'Contact e-mail of pledger';
+COMMENT ON COLUMN active_pledges.phone_number IS 'Contact phone number of pledger';
 
 -- Advertisements
 

@@ -75,6 +75,21 @@ CREATE TABLE payments
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$')
 );
 
+CREATE TABLE pledges
+(
+    id UUID NOT NULL PRIMARY KEY,
+    campaign_id INT8 NOT NULL REFERENCES campaigns (id) ON DELETE CASCADE,
+    perk_id INT8 NOT NULL REFERENCES perks (id) ON DELETE CASCADE,
+    contact_email VARCHAR NULL,
+    phone_number VARCHAR NULL,
+    amount NUMERIC NOT NULL,
+    currency VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
+    CHECK(contact_email IS NOT NULL OR phone_number IS NOT NULL)
+);
+
 CREATE VIEW campaign_backers
 AS
 SELECT id,
@@ -83,12 +98,14 @@ SELECT id,
        goal,
        CASE WHEN num_raised IS NULL THEN 0 ELSE num_raised END,
        CASE WHEN num_backers IS NULL THEN 0 ELSE num_backers END,
+       CASE WHEN num_pledged IS NULL THEN 0 ELSE num_pledged END,
+       CASE WHEN num_pledgers IS NULL THEN 0 ELSE num_pledgers END,
        start_date,
        end_date,
        flexible,
        active
 FROM campaigns
-LEFT OUTER JOIN 
+LEFT OUTER JOIN
     (SELECT campaign_id,
             sum(amount) AS num_raised,
             COUNT(1) AS num_backers
@@ -96,6 +113,13 @@ LEFT OUTER JOIN
     WHERE state = 'success'
     GROUP BY campaign_id) backers
 ON campaigns.id = backers.campaign_id
+LEFT OUTER JOIN
+    (SELECT campaign_id,
+            sum(amount) AS num_pledged,
+            COUNT(1) AS num_pledgers
+    FROM pledges
+    GROUP BY campaign_id) pledgers
+ON campaigns.id = pledgers.campaign_id
 ORDER BY id ASC;
 
 CREATE VIEW perk_claims
@@ -110,6 +134,7 @@ SELECT perks.id,
        available,
        ship_date,
        CASE WHEN num_claimed IS NULL THEN 0 ELSE num_claimed END,
+       CASE WHEN num_pledged IS NULL THEN 0 ELSE num_pledged END,
        perks.active
 FROM perks
 INNER JOIN campaigns
@@ -123,6 +148,14 @@ LEFT OUTER JOIN
     GROUP BY campaign_id, perk_id) claimed
 ON perks.campaign_id = claimed.campaign_id
     AND perks.id = claimed.perk_id
+LEFT OUTER JOIN
+    (SELECT campaign_id,
+            perk_id,
+            COUNT(1) AS num_pledged
+    FROM payments
+    GROUP BY campaign_id, perk_id) pledged
+ON perks.campaign_id = pledged.campaign_id
+    AND perks.id = pledged.perk_id
 ORDER BY campaign_id ASC;
 
 CREATE VIEW active_payments
@@ -155,6 +188,25 @@ INNER JOIN campaigns
 ON payments.campaign_id = campaigns.id
 INNER JOIN perks
 ON payments.perk_id = perks.id
+WHERE campaigns.active = TRUE AND perks.active = TRUE;
+
+CREATE VIEW active_pledges
+AS
+SELECT
+    pledges.id,
+    pledges.campaign_id,
+    pledges.perk_id,
+    campaigns.name AS campaign_name,
+    perks.name AS perk_name,
+    amount,
+    pledges.currency,
+    contact_email,
+    phone_number
+FROM pledges
+INNER JOIN campaigns
+ON pledges.campaign_id = campaigns.id
+INNER JOIN perks
+ON pledges.perk_id = perks.id
 WHERE campaigns.active = TRUE AND perks.active = TRUE;
 
 CREATE VIEW advertisements

@@ -24,3 +24,9 @@ INSERT INTO funders.payments VALUES ('5d5e0c4b-157f-467f-ae0d-bf699143a2f4', 313
 INSERT INTO funders.payments VALUES ('74c2c75e-0f1a-4394-88a2-15b5cb298def', 31337, 31340, 'credit_card', 'Donovan James', 'Donovan James', '12 East Tremont Avenue', DEFAULT, 'Bronx', '10467', 'USA', 500, 'USD', 'failure', DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT, 'stripe', current_timestamp, current_timestamp);
 INSERT INTO funders.payments VALUES ('81e07c03-80a0-4d0e-a00c-ce764204da70', 31337, 31340, 'credit_card', 'Donovan James', 'Donovan James', '12 East Tremont Avenue', DEFAULT, 'Bronx', '10467', 'USA', 500, 'USD', 'failure', DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT, 'stripe', current_timestamp, current_timestamp);
 INSERT INTO funders.payments VALUES ('cef6fab5-ddb0-442e-ab10-b281dd982525', 31337, 31340, 'paypal', 'Donovan James', 'Donovan James', '12 East Tremont Avenue', DEFAULT, 'Bronx', '10467', 'USA', 500, 'USD', 'pending', DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT, 'stripe', current_timestamp, current_timestamp);
+
+-- Pledges
+
+INSERT INTO funders.pledges VALUES ('8ae7e044-09f4-4e9e-981d-a6110e8bdc38', 31337, 31337, 'donovan.james@gmail.com', DEFAULT, 25, 'USD', current_timestamp, current_timestamp);
+INSERT INTO funders.pledges VALUES ('5ccf7b22-6868-4583-8790-11898d9b51b8', 31337, 31337, 'rocman.offman@gmail.com', DEFAULT, 25, 'USD', current_timestamp, current_timestamp);
+INSERT INTO funders.pledges VALUES ('592bec2a-14bd-4de8-8538-90c568b5770f', 31337, 31340, 'raul.ferris@gmail.com', DEFAULT, 500, 'USD', current_timestamp, current_timestamp);
