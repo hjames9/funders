@@ -122,7 +122,8 @@ func processPledge(pledgeBatch []interface{}, waitGroup *sync.WaitGroup) {
 		}
 
 		counter++
-		go makePledge(pledge)
+		waitGroup.Add(1)
+		go makePledge(pledge, waitGroup)
 	}
 
 	err = transaction.Commit()
@@ -151,7 +152,9 @@ func addPledge(pledge *Pledge, statement *sql.Stmt) (string, error) {
 	return lastInsertId, err
 }
 
-func makePledge(pledge *Pledge) {
+func makePledge(pledge *Pledge, waitGroup *sync.WaitGroup) {
+	defer waitGroup.Done()
+
 	perk, exists := perks.GetPerk(pledge.PerkId)
 	if exists {
 		perk.IncrementNumPledged(1)

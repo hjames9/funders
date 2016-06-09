@@ -364,9 +364,11 @@ func processPayment(paymentBatch []interface{}, waitGroup *sync.WaitGroup) {
 		case "credit_card":
 			fallthrough
 		case "bitcoin":
-			go makeStripePayment(payment)
+			waitGroup.Add(1)
+			go makeStripePayment(payment, waitGroup)
 		case "paypal":
-			go makePaypalPayment(payment)
+			waitGroup.Add(1)
+			go makePaypalPayment(payment, waitGroup)
 		default:
 			log.Printf("Unknown payment account type %s", payment.AccountType)
 		}
@@ -389,7 +391,8 @@ func processUpdatePayment(updatePaymentBatch []interface{}, waitGroup *sync.Wait
 		updatePayment := updatePaymentInterface.(*UpdatePayment)
 		switch updatePayment.AccountType {
 		case "paypal":
-			go executePaypalPayment(updatePayment)
+			waitGroup.Add(1)
+			go executePaypalPayment(updatePayment, waitGroup)
 		case "credit_card":
 			fallthrough
 		case "bitcoin":

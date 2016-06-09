@@ -8,6 +8,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -16,7 +17,9 @@ const (
 
 var paypalClient *paypalsdk.Client
 
-func makePaypalPayment(payment *Payment) error {
+func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
+	defer waitGroup.Done()
+
 	if payment.AccountType != "paypal" {
 		return errors.New("Only paypal payments are currently supported")
 	}
@@ -81,7 +84,9 @@ func makePaypalPayment(payment *Payment) error {
 	return err
 }
 
-func executePaypalPayment(updatePayment *UpdatePayment) error {
+func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGroup) error {
+	defer waitGroup.Done()
+
 	payment := updatePayment.payment
 
 	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)

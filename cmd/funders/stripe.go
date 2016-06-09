@@ -11,6 +11,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,7 +21,9 @@ const (
 
 var stripeKey string
 
-func makeStripePayment(payment *Payment) error {
+func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
+	defer waitGroup.Done()
+
 	stripe.Key = stripeKey
 	payment.PaymentProcessorUsed = STRIPE_PROCESSOR
 
