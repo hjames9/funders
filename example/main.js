@@ -1,10 +1,10 @@
-function buyPerk(event)
+function buyPerkCreditCard(event)
 {
     var funder = new Funder();
     funder.setUrl("http://localhost:3000");
     funder.addAdhocField("currency", "USD");
 
-    var perkId = event.target.id.substring(0, event.target.id.length - 1);
+    var perkId = event.target.id.substring(0, event.target.id.length - 2);
 
     var paymentParams = { "campaignId" : "31337",
                           "perkId" : perkId,
@@ -23,13 +23,13 @@ function buyPerk(event)
                           "country" : "US",
                           "advertise" : true,
                           "advertiseOther" : "Philly Bronx"
-    };
+                        };
 
     successFunc = function(response, status, fun)
     {
         function reload()
         {
-            $("#purchaseStatus").text("Success buying perk: " + response.perk.name);
+            $("#purchaseStatus").text("Success buying perk with credit card: " + response.perk.name);
             loadFunders();
         };
 
@@ -42,7 +42,76 @@ function buyPerk(event)
 
     errorFunc = function(response, status, fun)
     {
-        $("#purchaseStatus").text("Error buying perk: " + response.Message);
+        $("#purchaseStatus").text("Error buying perk with credit card: " + response.Message);
+    };
+
+    funder.makePayment(paymentParams, successFunc, errorFunc);
+};
+
+function buyPerkPaypal(event)
+{
+    var funder = new Funder();
+    funder.setUrl("http://localhost:3000");
+    funder.addAdhocField("currency", "USD");
+
+    var perkId = event.target.id.substring(0, event.target.id.length - 2);
+
+    var paymentParams = { "campaignId" : "31337",
+                          "perkId" : perkId,
+                          "accountType" : "paypal",
+                          "nameOnPayment" : "John Doe",
+                          "paypalRedirectUrl" : "https://originallocation.com?redirect=true",
+                          "paypalCancelUrl" : "https://originallocation.com?cancel=true",
+                          "fullName" : "John Doe",
+                          "address1" : "55555 White Plains Road",
+                          "address2" : "Apt. 555",
+                          "city" : "Bronx",
+                          "postalCode" : "10467",
+                          "country" : "US",
+                          "advertise" : true,
+                          "advertiseOther" : "Philly Bronx"
+                        };
+
+    successFunc = function(response, status, fun)
+    {
+        function reload()
+        {
+            //Update payment
+            var updatePaymentParams = { "id" : response.id,
+                                        "campaignId" : "31337",
+                                        "perkId" : perkId,
+                                        "accountType" : "paypal",
+                                        "nameOnPayment" : "John Doe",
+                                        "paypalPayerId" : "badpayerid",
+                                        "paypalPaymentId" : "badpaymentid",
+                                        "paypalToken" : "badtoken"
+                                      };
+
+            successPaypalFunc = function(response2, status2, fun2)
+            {
+                $("#purchaseStatus").text("Success buying perk with paypal: " + response2.perk.name);
+                loadFunders();
+            };
+
+            errorPaypalFunc = function(response2, status2, fun2)
+            {
+                $("#purchaseStatus").text("Error buying perk with paypal: " + response2.Message);
+            };
+
+            funder.updatePayment(updatePaymentParams, successPaypalFunc, errorPaypalFunc);
+
+        };
+
+        if(status == 202) {
+            setTimeout(reload, 6000);
+        } else {
+            reload();
+        }
+    };
+
+    errorFunc = function(response, status, fun)
+    {
+        $("#purchaseStatus").text("Error buying perk with paypal: " + response.Message);
     };
 
     funder.makePayment(paymentParams, successFunc, errorFunc);
@@ -116,8 +185,9 @@ function loadFunders()
     });
 
     $.each(perks, function(index, value) {
-        $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.numPledged + '</td><td>' + value.available + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + 'b">Buy perk</button></td>' + '<td><button id="' + value.id + 'p">Pledge perk</button></td></tr>');
-        $("#" + value.id + "b").click(buyPerk);
+        $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.numPledged + '</td><td>' + value.available + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + 'bc">Buy perk</button></td>' + '<td><button id="' + value.id + 'bp">Buy perk</button></td>' + '<td><button id="' + value.id + 'p">Pledge perk</button></td></tr>');
+        $("#" + value.id + "bc").click(buyPerkCreditCard);
+        $("#" + value.id + "bp").click(buyPerkPaypal);
         $("#" + value.id + "p").click(pledgePerk);
     });
 
