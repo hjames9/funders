@@ -19,7 +19,7 @@ const (
 type UpdatePayment struct {
 	Id              string `form:"id" binding:"required"`
 	AccountType     string `form:"accountType" binding:"required"`
-	State           string `form:"state"`
+	State           string
 	PaypalPayerId   string `form:"paypalPayerId"`
 	PaypalPaymentId string `form:"paypalPaymentId"`
 	PaypalToken     string `form:"paypalToken"`
@@ -50,7 +50,6 @@ func (updatePayment *UpdatePayment) MarshalJSON() ([]byte, error) {
 func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	errors = validateSizeLimit(updatePayment.Id, "id", stringSizeLimit, errors)
 	errors = validateSizeLimit(updatePayment.AccountType, "accountType", stringSizeLimit, errors)
-	errors = validateSizeLimit(updatePayment.State, "state", stringSizeLimit, errors)
 	errors = validateSizeLimit(updatePayment.PaypalPayerId, "paypalPayerId", stringSizeLimit, errors)
 	errors = validateSizeLimit(updatePayment.PaypalPaymentId, "paypalPaymentId", stringSizeLimit, errors)
 	errors = validateSizeLimit(updatePayment.PaypalToken, "paypalToken", stringSizeLimit, errors)
@@ -59,11 +58,6 @@ func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Re
 		if !accountTypes[updatePayment.AccountType] {
 			message := fmt.Sprintf("Invalid account type \"%s\" specified", updatePayment.AccountType)
 			errors = addError(errors, []string{"accountType"}, binding.TypeError, message)
-		}
-
-		if len(updatePayment.State) > 0 && !paymentStates[updatePayment.State] {
-			message := fmt.Sprintf("Invalid payment state \"%s\" specified", updatePayment.State)
-			errors = addError(errors, []string{"state"}, binding.TypeError, message)
 		}
 
 		if updatePayment.AccountType == "paypal" && (len(updatePayment.PaypalPayerId) == 0 || len(updatePayment.PaypalPaymentId) == 0 || len(updatePayment.PaypalToken) == 0) {
@@ -95,6 +89,13 @@ func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Re
 				} else {
 					log.Printf("Could not find campaign %d for payment %s", updatePayment.payment.CampaignId, updatePayment.Id)
 				}
+			}
+
+			updatePayment.State = updatePayment.payment.State
+
+			if updatePayment.payment.State != "pending" {
+				message := fmt.Sprintf("Only pending payments can be updated. State: \"%s\" specified", updatePayment.payment.State)
+				errors = addError(errors, []string{"state"}, binding.TypeError, message)
 			}
 		}
 

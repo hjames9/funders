@@ -217,7 +217,6 @@ func makePledgeHandler(res http.ResponseWriter, req *http.Request, pledge Pledge
 	log.Printf("Received new pledge: %#v", pledge)
 
 	req.Close = true
-	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	var response common.Response
 
 	if asyncPledgeRequest && nil != pledgeBatchProcessor && pledgeBatchProcessor.Running {

@@ -44,8 +44,19 @@ func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 		Currency: payment.Currency,
 	}
 
-	redirectURI := fmt.Sprintf("%s&paymentId=%s", payment.PaypalRedirectUrl, payment.Id)
-	cancelURI := fmt.Sprintf("%s&paymentId=%s", payment.PaypalCancelUrl, payment.Id)
+	hasParameters := func(uri string) (bool, string) {
+		if strings.Contains(uri, "?") {
+			return true, "&"
+		} else {
+			return false, "?"
+		}
+	}
+
+	_, redirectURIDelim := hasParameters(payment.PaypalRedirectUrl)
+	_, cancelURIDelim := hasParameters(payment.PaypalCancelUrl)
+
+	redirectURI := fmt.Sprintf("%s%spaymentId=%s", payment.PaypalRedirectUrl, redirectURIDelim, payment.Id)
+	cancelURI := fmt.Sprintf("%s%spaymentId=%s", payment.PaypalCancelUrl, cancelURIDelim, payment.Id)
 	description := fmt.Sprintf("Perk(%s) for Campaign(%s). Payment id(%s)", perk.Name, campaign.Name, payment.Id)
 	paymentResult, err := paypalClient.CreateDirectPaypalPayment(amount, redirectURI, cancelURI, description)
 

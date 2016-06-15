@@ -506,7 +506,6 @@ func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Paym
 	log.Printf("Received new payment: %#v", payment)
 
 	req.Close = true
-	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	var response common.Response
 
 	if asyncPaymentRequest && nil != paymentBatchProcessor && paymentBatchProcessor.Running {
