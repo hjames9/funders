@@ -181,22 +181,22 @@ func getCampaignHandler(res http.ResponseWriter, req *http.Request) (int, string
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	req.Close = true
 
-	var response Response
+	var response common.Response
 	campaignName := strings.TrimSpace(req.URL.Query().Get("name"))
 
 	if len(campaignName) == 0 {
 		responseStr := "Campaign name parameter required"
-		response = Response{Code: http.StatusBadRequest, Message: responseStr}
+		response = common.Response{Code: http.StatusBadRequest, Message: responseStr}
 	} else {
 		campaign, err := getCampaign(campaignName)
 
 		if sql.ErrNoRows == err {
 			responseStr := fmt.Sprintf("%s not found", campaignName)
-			response = Response{Code: http.StatusNotFound, Message: responseStr}
+			response = common.Response{Code: http.StatusNotFound, Message: responseStr}
 			log.Print(responseStr)
 		} else if nil != err {
 			responseStr := "Could not get campaign due to server error"
-			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			response = common.Response{Code: http.StatusInternalServerError, Message: responseStr}
 			log.Print(err)
 		} else {
 			jsonStr, _ := json.Marshal(campaign)

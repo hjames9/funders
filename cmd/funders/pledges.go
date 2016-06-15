@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hjames9/funders"
-	_ "github.com/lib/pq"
 	"github.com/martini-contrib/binding"
 	"github.com/satori/go.uuid"
 	"log"
@@ -21,8 +20,10 @@ const (
 
 type Pledge struct {
 	Id            string
-	CampaignId    int64  `form:"campaignId" binding:"required"`
-	PerkId        int64  `form:"perkId" binding:"required"`
+	CampaignId    int64 `form:"campaignId" binding:"required"`
+	Campaign      *Campaign
+	PerkId        int64 `form:"perkId" binding:"required"`
+	Perk          *Perk
 	ContactEmail  string `form:"contactEmail"`
 	PhoneNumber   string `form:"phoneNumber"`
 	ContactOptIn  bool   `form:"contactOptIn"`
@@ -31,6 +32,26 @@ type Pledge struct {
 	Advertise     bool   `form:"advertise"`
 	AdvertiseName string `form:"advertiseName"`
 }
+
+func (pledge *Pledge) MarshalJSON() ([]byte, error) {
+	type MyPledge Pledge
+	return json.Marshal(&struct {
+		Id         string    `json:"id"`
+		CampaignId int64     `json:"campaignId"`
+		Campaign   *Campaign `json:"campaign"`
+		PerkId     int64     `json:"perkId"`
+		Perk       *Perk     `json:"perk"`
+	}{
+		Id:         pledge.Id,
+		CampaignId: pledge.CampaignId,
+		Campaign:   pledge.Campaign,
+		PerkId:     pledge.PerkId,
+		Perk:       pledge.Perk,
+	})
+}
+
+//Asynchronous pledges
+var asyncPledgeRequest bool
 
 func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	errors = validateSizeLimit(pledge.ContactEmail, "contactEmail", stringSizeLimit, errors)
@@ -59,6 +80,7 @@ func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding
 			} else {
 				pledge.Amount = perk.Price
 				pledge.Currency = perk.Currency
+				pledge.Perk = perk
 			}
 		} else {
 			message := fmt.Sprintf("Perk not found with id: %d for campaign: %d", pledge.PerkId, pledge.CampaignId)
@@ -73,6 +95,8 @@ func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding
 			} else if !campaign.HasStarted() {
 				message := fmt.Sprintf("Campaign %s with id: %d will start on %s", campaign.Name, pledge.CampaignId, campaign.StartDate)
 				errors = addError(errors, []string{"campaignId"}, binding.TypeError, message)
+			} else {
+				pledge.Campaign = campaign
 			}
 		} else {
 			message := fmt.Sprintf("Campaign not found with id: %d", pledge.CampaignId)
@@ -91,7 +115,15 @@ func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding
 //Background pledge threads
 var pledgeBatchProcessor *common.BatchProcessor
 
-func processPledge(pledgeBatch []interface{}, waitGroup *sync.WaitGroup) {
+func processPledge(pledge *Pledge) error {
+	err := addPledge(pledge, nil)
+	if nil == err {
+		makePledge(pledge, nil)
+	}
+	return err
+}
+
+func processBatchPledge(pledgeBatch []interface{}, waitGroup *sync.WaitGroup) {
 	log.Printf("Starting batch processing of %d pledges", len(pledgeBatch))
 
 	defer waitGroup.Done()
@@ -114,7 +146,7 @@ func processPledge(pledgeBatch []interface{}, waitGroup *sync.WaitGroup) {
 	counter := 0
 	for _, pledgeInterface := range pledgeBatch {
 		pledge := pledgeInterface.(*Pledge)
-		_, err = addPledge(pledge, statement)
+		err = addPledge(pledge, statement)
 		if nil != err {
 			log.Printf("Error processing pledge %#v", pledge)
 			log.Print(err)
@@ -135,25 +167,29 @@ func processPledge(pledgeBatch []interface{}, waitGroup *sync.WaitGroup) {
 	}
 }
 
-func addPledge(pledge *Pledge, statement *sql.Stmt) (string, error) {
-	var lastInsertId string
+func addPledge(pledge *Pledge, statement *sql.Stmt) error {
 	var err error
 
 	contactEmail := common.CreateSqlString(pledge.ContactEmail)
 	phoneNumber := common.CreateSqlString(pledge.PhoneNumber)
 	advertiseName := common.CreateSqlString(pledge.AdvertiseName)
 
-	err = statement.QueryRow(pledge.Id, pledge.CampaignId, pledge.PerkId, contactEmail, phoneNumber, pledge.ContactOptIn, pledge.Amount, pledge.Currency, pledge.Advertise, advertiseName, time.Now(), time.Now()).Scan(&lastInsertId)
-
+	if nil == statement {
+		err = db.QueryRow(ADD_PLEDGE_QUERY, pledge.Id, pledge.CampaignId, pledge.PerkId, contactEmail, phoneNumber, pledge.ContactOptIn, pledge.Amount, pledge.Currency, pledge.Advertise, advertiseName, time.Now(), time.Now()).Scan(&pledge.Id)
+	} else {
+		err = statement.QueryRow(pledge.Id, pledge.CampaignId, pledge.PerkId, contactEmail, phoneNumber, pledge.ContactOptIn, pledge.Amount, pledge.Currency, pledge.Advertise, advertiseName, time.Now(), time.Now()).Scan(&pledge.Id)
+	}
 	if nil == err {
-		log.Printf("New pledge id = %s", lastInsertId)
+		log.Printf("New pledge id = %s", pledge.Id)
 	}
 
-	return lastInsertId, err
+	return err
 }
 
 func makePledge(pledge *Pledge, waitGroup *sync.WaitGroup) {
-	defer waitGroup.Done()
+	if nil != waitGroup {
+		defer waitGroup.Done()
+	}
 
 	perk, exists := perks.GetPerk(pledge.PerkId)
 	if exists {
@@ -182,16 +218,25 @@ func makePledgeHandler(res http.ResponseWriter, req *http.Request, pledge Pledge
 
 	req.Close = true
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
-	var response Response
+	var response common.Response
 
-	if pledgeBatchProcessor.Running {
+	if asyncPledgeRequest && nil != pledgeBatchProcessor && pledgeBatchProcessor.Running {
 		pledgeBatchProcessor.AddEvent(&pledge)
 		responseStr := "Successfully scheduled pledge"
-		response = Response{Code: http.StatusAccepted, Message: responseStr, Id: pledge.Id}
+		response = common.Response{Code: http.StatusAccepted, Message: responseStr, Id: pledge.Id}
 		log.Print(responseStr)
-	} else if !pledgeBatchProcessor.Running {
+	} else if !asyncPledgeRequest {
+		err := processPledge(&pledge)
+		if nil != err {
+			response = common.Response{Code: http.StatusInternalServerError, Message: err.Error(), Id: pledge.Id}
+			log.Print(err)
+		} else {
+			jsonStr, _ := json.Marshal(&pledge)
+			return http.StatusCreated, string(jsonStr)
+		}
+	} else if asyncPledgeRequest && (nil == pledgeBatchProcessor || !pledgeBatchProcessor.Running) {
 		responseStr := "Could not add pledge due to server maintenance"
-		response = Response{Code: http.StatusServiceUnavailable, Message: responseStr, Id: pledge.Id}
+		response = common.Response{Code: http.StatusServiceUnavailable, Message: responseStr, Id: pledge.Id}
 		log.Print(responseStr)
 	}
 

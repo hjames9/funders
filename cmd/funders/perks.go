@@ -158,22 +158,22 @@ func getPerkHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	req.Close = true
 
-	var response Response
+	var response common.Response
 	campaignName := strings.TrimSpace(req.URL.Query().Get("campaign_name"))
 
 	if len(campaignName) == 0 {
 		responseStr := "Campaign name parameter required"
-		response = Response{Code: http.StatusBadRequest, Message: responseStr}
+		response = common.Response{Code: http.StatusBadRequest, Message: responseStr}
 	} else {
 		perks, err := getPerks(campaignName)
 
 		if nil != err {
 			responseStr := "Could not get perks due to server error"
-			response = Response{Code: http.StatusInternalServerError, Message: responseStr}
+			response = common.Response{Code: http.StatusInternalServerError, Message: responseStr}
 			log.Print(err)
 		} else if len(perks) <= 0 {
 			responseStr := fmt.Sprintf("%s not found", campaignName)
-			response = Response{Code: http.StatusNotFound, Message: responseStr}
+			response = common.Response{Code: http.StatusNotFound, Message: responseStr}
 			log.Print(responseStr)
 		} else {
 			jsonStr, _ := json.Marshal(perks)

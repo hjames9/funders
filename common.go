@@ -2,6 +2,7 @@ package common
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -40,6 +41,31 @@ type Perk struct {
 	NumClaimed   int64        `json:"-"`
 	NumPledged   int64        `json:"-"`
 	Lock         sync.RWMutex `json:"-"`
+}
+
+type Response struct {
+	Code    int
+	Message string
+	Id      string `json:",omitempty"`
+}
+
+type ErrorType int
+
+const (
+	BadRequestError ErrorType = 1 << iota
+	NotFoundError
+	ServerError
+	ServiceUnavailableError
+	ServiceNotImplementedError
+)
+
+type RequestError struct {
+	Message string
+	Type    ErrorType
+}
+
+func (requestError RequestError) Error() string {
+	return fmt.Sprintf("%d: %s", requestError.Type, requestError.Message)
 }
 
 func GetenvWithDefault(envKey string, defaultVal string) string {

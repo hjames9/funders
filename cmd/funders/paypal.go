@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/hjames9/funders"
 	"github.com/logpacker/PayPal-Go-SDK"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,22 +19,24 @@ const (
 var paypalClient *paypalsdk.Client
 
 func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
-	defer waitGroup.Done()
+	if nil != waitGroup {
+		defer waitGroup.Done()
+	}
 
 	if payment.AccountType != "paypal" {
-		return errors.New("Only paypal payments are currently supported")
+		return common.RequestError{"Only paypal payments are currently supported", common.ServiceNotImplementedError}
 	}
 
 	payment.PaymentProcessorUsed = PAYPAL_PROCESSOR
 
 	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)
 	if !campaignExists {
-		return errors.New(fmt.Sprintf("Campaign not found %d", payment.CampaignId))
+		return common.RequestError{fmt.Sprintf("Campaign not found %d", payment.CampaignId), common.NotFoundError}
 	}
 
 	perk, perkExists := perks.GetPerk(payment.PerkId)
 	if !perkExists {
-		return errors.New(fmt.Sprintf("Perk not found %d", payment.PerkId))
+		return common.RequestError{fmt.Sprintf("Perk not found %d", payment.PerkId), common.NotFoundError}
 	}
 
 	amount := paypalsdk.Amount{
@@ -47,11 +50,11 @@ func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 	paymentResult, err := paypalClient.CreateDirectPaypalPayment(amount, redirectURI, cancelURI, description)
 
 	if nil == err {
-		jsonStr, err := json.Marshal(paymentResult)
-		if nil == err {
+		jsonStr, jsonErr := json.Marshal(paymentResult)
+		if nil == jsonErr {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		} else {
-			log.Print(err)
+			log.Print(jsonErr)
 			log.Printf("Unable to marshal payment response (%#v) from paypal", paymentResult)
 		}
 
@@ -61,42 +64,58 @@ func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 		log.Printf("%#v", err)
 		log.Print("Failed processing payment with processor")
 
-		jsonStr, err := json.Marshal(err)
-		if nil != err {
-			log.Print(err)
+		jsonStr, jsonErr := json.Marshal(err)
+		if nil != jsonErr {
+			log.Print(jsonErr)
 			log.Print("Unable to marshal paypal error")
 		} else {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		}
 
 		payment.UpdateState("failure")
+
+		if _, err = url.Parse(redirectURI); nil != err {
+			err = common.RequestError{fmt.Sprintf("Redirect URI is invalid: %s", redirectURI), common.BadRequestError}
+		} else if _, err = url.Parse(cancelURI); nil != err {
+			err = common.RequestError{fmt.Sprintf("Cancel URI is invalid: %s", cancelURI), common.BadRequestError}
+		} else if nil != paymentResult && len(paymentResult.ID) == 0 {
+			err = common.RequestError{err.Error(), common.ServerError}
+		} else {
+			//Seems like only server errors should occur here
+			err = common.RequestError{err.Error(), common.ServerError}
+		}
 	}
 
 	paymentsCache.AddOrReplacePayment(payment)
-	_, err = updatePaymentInDb(payment)
-	if nil != err {
-		log.Print(err)
-		log.Printf("Error updating payment %s with information from processor", payment.Id)
-	} else {
-		log.Printf("Successfully updated payment %s in database", payment.Id)
+	if nil != waitGroup {
+		_, dbErr := updatePaymentInDb(payment)
+		if nil != dbErr {
+			log.Print(dbErr)
+			log.Printf("Error updating payment %s with information from processor", payment.Id)
+			log.Print("%#v", payment)
+		} else {
+			log.Printf("Successfully updated payment %s in database", payment.Id)
+		}
 	}
 
 	return err
 }
 
 func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGroup) error {
-	defer waitGroup.Done()
+	if nil != waitGroup {
+		defer waitGroup.Done()
+	}
 
 	payment := updatePayment.payment
 
 	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)
 	if !campaignExists {
-		return errors.New(fmt.Sprintf("Campaign not found %d", payment.CampaignId))
+		return common.RequestError{fmt.Sprintf("Campaign not found %d", payment.CampaignId), common.NotFoundError}
 	}
 
 	perk, perkExists := perks.GetPerk(payment.PerkId)
 	if !perkExists {
-		return errors.New(fmt.Sprintf("Perk not found %d", payment.PerkId))
+		return common.RequestError{fmt.Sprintf("Perk not found %d", payment.PerkId), common.NotFoundError}
 	}
 
 	if updatePayment.State == "failure" {
@@ -115,7 +134,7 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 			log.Printf("Successfully updated payment %s in database", payment.Id)
 		}
 
-		return errors.New(message)
+		return common.RequestError{message, common.BadRequestError}
 	}
 
 	executeResult, err := paypalClient.ExecuteApprovedPayment(updatePayment.PaypalPaymentId, updatePayment.PaypalPayerId)
@@ -123,11 +142,11 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 		payment.UpdateState("success")
 		advertisements.AddAdvertisementFromPayment(campaign.Name, payment)
 
-		jsonStr, err := json.Marshal(executeResult)
-		if nil == err {
+		jsonStr, jsonErr := json.Marshal(executeResult)
+		if nil == jsonErr {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		} else {
-			log.Print(err)
+			log.Print(jsonErr)
 			log.Printf("Unable to marshal payment response (%#v) from paypal", executeResult)
 		}
 
@@ -143,20 +162,27 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 		log.Print(err)
 		payment.UpdateState("failure")
 
-		jsonStr, err := json.Marshal(err)
-		if nil == err {
+		jsonStr, jsonErr := json.Marshal(err)
+		if nil == jsonErr {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		} else {
-			log.Print(err)
+			log.Print(jsonErr)
 			log.Printf("Unable to marshal payment response (%#v) from paypal", executeResult)
+		}
+
+		if nil != executeResult && len(executeResult.ID) == 0 {
+			err = common.RequestError{err.Error(), common.BadRequestError}
+		} else {
+			err = common.RequestError{err.Error(), common.ServerError}
 		}
 	}
 
 	paymentsCache.AddOrReplacePayment(updatePayment.payment)
-	_, err = updatePaymentInDb(updatePayment.payment)
-	if nil != err {
-		log.Print(err)
+	_, dbErr := updatePaymentInDb(updatePayment.payment)
+	if nil != dbErr {
+		log.Print(dbErr)
 		log.Printf("Error updating payment %s with information from processor", payment.Id)
+		log.Print("%#v", updatePayment.payment)
 	} else {
 		log.Printf("Successfully updated payment %s in database", payment.Id)
 	}

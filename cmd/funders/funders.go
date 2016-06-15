@@ -35,12 +35,6 @@ const (
 	PATCH_METHOD        = "PATCH"
 )
 
-type Response struct {
-	Code    int
-	Message string
-	Id      string `json:",omitempty"`
-}
-
 var db *sql.DB
 var stringSizeLimit int
 var botDetection common.BotDetection
@@ -79,38 +73,38 @@ func errorHandler(errors binding.Errors, res http.ResponseWriter) {
 		log.Printf("Error received. Fields: %s", fieldsMsg)
 
 		res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
-		var response Response
+		var response common.Response
 
 		if errors.Has(binding.RequiredError) {
 			res.WriteHeader(http.StatusBadRequest)
 			responseStr := fmt.Sprintf("Missing required field(s): %s", fieldsMsg)
-			response = Response{Code: http.StatusBadRequest, Message: responseStr}
+			response = common.Response{Code: http.StatusBadRequest, Message: responseStr}
 		} else if errors.Has(binding.ContentTypeError) {
 			res.WriteHeader(http.StatusUnsupportedMediaType)
-			response = Response{Code: http.StatusUnsupportedMediaType, Message: "Invalid content type"}
+			response = common.Response{Code: http.StatusUnsupportedMediaType, Message: "Invalid content type"}
 		} else if errors.Has(binding.DeserializationError) {
 			res.WriteHeader(http.StatusBadRequest)
-			response = Response{Code: http.StatusBadRequest, Message: "Deserialization error"}
+			response = common.Response{Code: http.StatusBadRequest, Message: "Deserialization error"}
 		} else if errors.Has(binding.TypeError) {
 			res.WriteHeader(http.StatusBadRequest)
-			response = Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
+			response = common.Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
 		} else if errors.Has(common.BOT_ERROR) {
 			if botDetection.PlayCoy && !paymentBatchProcessor.Running {
 				res.WriteHeader(http.StatusCreated)
-				response = Response{Code: http.StatusCreated, Message: "Successfully added payment", Id: uuid.NewV4().String()}
+				response = common.Response{Code: http.StatusCreated, Message: "Successfully added payment", Id: uuid.NewV4().String()}
 				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
 			} else if botDetection.PlayCoy && paymentBatchProcessor.Running {
 				res.WriteHeader(http.StatusAccepted)
-				response = Response{Code: http.StatusAccepted, Message: "Successfully scheduled payment"}
+				response = common.Response{Code: http.StatusAccepted, Message: "Successfully scheduled payment"}
 				log.Printf("Robot detected: %s. Playing coy.", errors[0].Error())
 			} else {
 				res.WriteHeader(http.StatusBadRequest)
-				response = Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
+				response = common.Response{Code: http.StatusBadRequest, Message: errors[0].Error()}
 				log.Printf("Robot detected: %s. Rejecting message.", errors[0].Error())
 			}
 		} else {
 			res.WriteHeader(http.StatusBadRequest)
-			response = Response{Code: http.StatusBadRequest, Message: "Unknown error"}
+			response = common.Response{Code: http.StatusBadRequest, Message: "Unknown error"}
 		}
 
 		log.Print(response.Message)
@@ -123,7 +117,7 @@ func notFoundHandler(res http.ResponseWriter, req *http.Request) (int, string) {
 	req.Close = true
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	responseStr := fmt.Sprintf("URL Not Found %s", req.URL)
-	response := Response{Code: http.StatusNotFound, Message: responseStr}
+	response := common.Response{Code: http.StatusNotFound, Message: responseStr}
 	log.Print(responseStr)
 	jsonStr, _ := json.Marshal(response)
 	return response.Code, string(jsonStr)
@@ -370,6 +364,7 @@ func main() {
 		log.Printf("Error converting input for field ASYNC_REQUEST_SIZE. Defaulting to 100000.")
 		log.Print(err)
 	}
+	log.Printf("Asynchronous request queue size set to %d", asyncRequestSize)
 
 	asyncProcessIntervalStr := common.GetenvWithDefault("ASYNC_PROCESS_INTERVAL", "5")
 	asyncProcessInterval, err := strconv.Atoi(asyncProcessIntervalStr)
@@ -378,21 +373,55 @@ func main() {
 		log.Printf("Error converting input for field ASYNC_PROCESS_INTERVAL. Defaulting to 5.")
 		log.Print(err)
 	}
-
-	//Make payment processor
-	paymentBatchProcessor = common.NewBatchProcessor(processPayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
-	paymentBatchProcessor.Start()
-
-	//Update payment processor
-	updatePaymentBatchProcessor = common.NewBatchProcessor(processUpdatePayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
-	updatePaymentBatchProcessor.Start()
-
-	//Update payment processor
-	pledgeBatchProcessor = common.NewBatchProcessor(processPledge, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
-	pledgeBatchProcessor.Start()
-
-	log.Printf("Asynchronous requests enabled. Request queue size set to %d", asyncRequestSize)
 	log.Printf("Asynchronous process interval is %d seconds", asyncProcessInterval)
+
+	//Asynchronous payment request
+	asyncPaymentRequestStr := common.GetenvWithDefault("ASYNC_PAYMENT_REQUEST", "true")
+	asyncPaymentRequest, err = strconv.ParseBool(asyncPaymentRequestStr)
+	if nil != err {
+		asyncPaymentRequest = true
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to true.", "ASYNC_PAYMENT_REQUEST", asyncPaymentRequestStr)
+		log.Print(err)
+	} else if asyncPaymentRequest {
+		//Make payment processor
+		paymentBatchProcessor = common.NewBatchProcessor(processBatchPayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
+		paymentBatchProcessor.Start()
+		log.Print("Asynchronous payment requests enabled")
+	} else {
+		log.Print("Synchronous payment requests enabled")
+	}
+
+	//Asynchronous update payment request
+	asyncUpdatePaymentRequestStr := common.GetenvWithDefault("ASYNC_UPDATE_PAYMENT_REQUEST", "true")
+	asyncUpdatePaymentRequest, err = strconv.ParseBool(asyncUpdatePaymentRequestStr)
+	if nil != err {
+		asyncUpdatePaymentRequest = true
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to true.", "ASYNC_UPDATE_PAYMENT_REQUEST", asyncUpdatePaymentRequestStr)
+		log.Print(err)
+	} else if asyncUpdatePaymentRequest {
+		//Update payment processor
+		updatePaymentBatchProcessor = common.NewBatchProcessor(processBatchUpdatePayment, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
+		updatePaymentBatchProcessor.Start()
+		log.Print("Asynchronous update payment requests enabled")
+	} else {
+		log.Print("Synchronous update payment requests enabled")
+	}
+
+	//Asynchronous payment request
+	asyncPledgeRequestStr := common.GetenvWithDefault("ASYNC_PLEDGE_REQUEST", "true")
+	asyncPledgeRequest, err = strconv.ParseBool(asyncPledgeRequestStr)
+	if nil != err {
+		asyncPledgeRequest = true
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to true.", "ASYNC_PLEDGE_REQUEST", asyncPledgeRequestStr)
+		log.Print(err)
+	} else if asyncPledgeRequest {
+		//Make pledge processor
+		pledgeBatchProcessor = common.NewBatchProcessor(processBatchPledge, asyncRequestSize, asyncProcessInterval, dbMaxOpenConns)
+		pledgeBatchProcessor.Start()
+		log.Print("Asynchronous pledge requests enabled")
+	} else {
+		log.Print("Synchronous pledge requests enabled")
+	}
 
 	//Initialize campaigns
 	cmps, err := getCampaignsFromDb()

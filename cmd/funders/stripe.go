@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/hjames9/funders"
 	"github.com/stripe/stripe-go"
@@ -22,7 +21,9 @@ const (
 var stripeKey string
 
 func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
-	defer waitGroup.Done()
+	if nil != waitGroup {
+		defer waitGroup.Done()
+	}
 
 	stripe.Key = stripeKey
 	payment.PaymentProcessorUsed = STRIPE_PROCESSOR
@@ -42,17 +43,17 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 			return err
 		}
 	} else {
-		return errors.New("Only credit card and bitcoin payments are currently supported")
+		return common.RequestError{"Only credit card and bitcoin payments are currently supported", common.ServiceNotImplementedError}
 	}
 
 	campaign, campaignExists := campaigns.GetCampaignById(payment.CampaignId)
 	if !campaignExists {
-		return errors.New(fmt.Sprintf("Campaign not found %d", payment.CampaignId))
+		return common.RequestError{fmt.Sprintf("Campaign not found %d", payment.CampaignId), common.NotFoundError}
 	}
 
 	perk, perkExists := perks.GetPerk(payment.PerkId)
 	if !perkExists {
-		return errors.New(fmt.Sprintf("Perk not found %d", payment.PerkId))
+		return common.RequestError{fmt.Sprintf("Perk not found %d", payment.PerkId), common.NotFoundError}
 	}
 
 	address := stripe.Address{
@@ -86,11 +87,11 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 	if nil == err {
 		log.Print("Successfully processed payment with processor")
 
-		jsonStr, err := json.Marshal(ch)
-		if nil == err {
+		jsonStr, jsonErr := json.Marshal(ch)
+		if nil == jsonErr {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		} else {
-			log.Print(err)
+			log.Print(jsonErr)
 			log.Printf("Unable to marshal charge response (%#v) from stripe", ch)
 		}
 
@@ -115,28 +116,53 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
 		payment.UpdateState("failure")
 
-		var stripeError = struct {
-			Type    string
-			Message string
-			Code    string
-			Status  int
-		}{}
-		err = json.Unmarshal([]byte(err.Error()), &stripeError)
-		if nil == err {
-			payment.UpdateFailureReason(stripeError.Message)
+		if stripeErr, ok := err.(*stripe.Error); ok {
+			switch stripeErr.Code {
+			case stripe.IncorrectNum:
+				fallthrough
+			case stripe.InvalidNum:
+				fallthrough
+			case stripe.InvalidExpM:
+				fallthrough
+			case stripe.InvalidExpY:
+				fallthrough
+			case stripe.InvalidCvc:
+				fallthrough
+			case stripe.ExpiredCard:
+				fallthrough
+			case stripe.IncorrectCvc:
+				fallthrough
+			case stripe.IncorrectZip:
+				fallthrough
+			case stripe.CardDeclined:
+				fallthrough
+			case stripe.Missing:
+				fallthrough
+			case stripe.ProcessingErr:
+				err = common.RequestError{stripeErr.Msg, common.BadRequestError}
+			case stripe.RateLimit:
+				fallthrough
+			default:
+				err = common.RequestError{stripeErr.Msg, common.ServerError}
+			}
+
+			payment.UpdateFailureReason(stripeErr.Msg)
 		} else {
-			log.Print(err)
-			log.Print("Error unmarshaling stripe error message")
+			errorMsg := "Really bad Server error"
+			payment.UpdateFailureReason(errorMsg)
+			err = common.RequestError{errorMsg, common.ServerError}
 		}
 	}
 
 	paymentsCache.AddOrReplacePayment(payment)
-	_, err = updatePaymentInDb(payment)
-	if nil != err {
-		log.Print(err)
-		log.Printf("Error updating payment %s with information from processor", payment.Id)
-	} else {
-		log.Printf("Successfully updated payment %s in database", payment.Id)
+	if nil != waitGroup {
+		_, dbErr := updatePaymentInDb(payment)
+		if nil != dbErr {
+			log.Print(dbErr)
+			log.Printf("Error updating payment %s with information from processor", payment.Id)
+		} else {
+			log.Printf("Successfully updated payment %s in database", payment.Id)
+		}
 	}
 
 	return err
@@ -145,7 +171,7 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 func makeStripeCreditCardPayment(payment *Payment) (*stripe.SourceParams, error) {
 	creditCardExpirationDate, err := time.Parse(common.TIME_LAYOUT, payment.CreditCardExpirationDate)
 	if nil != err {
-		return nil, err
+		return nil, common.RequestError{err.Error(), common.BadRequestError}
 	}
 
 	cardParams := &stripe.CardParams{
@@ -171,5 +197,9 @@ func makeStripeBitcoinPayment(payment *Payment) (*stripe.BitcoinReceiver, error)
 	}
 
 	receiver, err := bitcoinreceiver.New(receiverParams)
+	if nil != err {
+		err = common.RequestError{err.Error(), common.BadRequestError}
+	}
+
 	return receiver, err
 }

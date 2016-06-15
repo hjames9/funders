@@ -25,16 +25,27 @@ function buyPerk(event)
                           "advertiseOther" : "Philly Bronx"
     };
 
-    payment = funder.makePayment(paymentParams);
-
-    if(isSuccess(payment.Code)) {
-        setTimeout(function() {
-            $("#purchaseStatus").text("Success buying perk: " + payment.Message);
+    successFunc = function(response, status, fun)
+    {
+        function reload()
+        {
+            $("#purchaseStatus").text("Success buying perk: " + response.perk.name);
             loadFunders();
-        }, 6000);
-    } else {
-        $("#purchaseStatus").text("Error buying perk: " + payment.Message);
-    }
+        };
+
+        if(status == 202) {
+            setTimeout(reload, 6000);
+        } else {
+            reload();
+        }
+    };
+
+    errorFunc = function(response, status, fun)
+    {
+        $("#purchaseStatus").text("Error buying perk: " + response.Message);
+    };
+
+    funder.makePayment(paymentParams, successFunc, errorFunc);
 };
 
 function pledgePerk(event)
@@ -53,16 +64,27 @@ function pledgePerk(event)
                          "advertiseName" : "Philly Queens"
                        };
 
-    pledge = funder.makePledge(pledgeParams);
-
-    if(isSuccess(pledge.Code)) {
-        setTimeout(function() {
-            $("#purchaseStatus").text("Success pledging perk: " + pledge.Message);
+    successFunc = function(response, status, fun)
+    {
+        function reload()
+        {
+            $("#purchaseStatus").text("Success pledging perk: " + response.perk.name);
             loadFunders();
-        }, 6000);
-    } else {
-        $("#purchaseStatus").text("Error pledging perk: " + pledge.Message);
-    }
+        };
+
+        if(status == 202) {
+            setTimeout(reload, 6000);
+        } else {
+            reload();
+        }
+    };
+
+    errorFunc = function(response, status, fun)
+    {
+        $("#purchaseStatus").text("Error pledging perk: " + response.Message);
+    };
+
+    funder.makePledge(pledgeParams, successFunc, errorFunc);
 };
 
 function loadFunders()
