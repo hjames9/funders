@@ -10,6 +10,7 @@ import (
 	"github.com/logpacker/PayPal-Go-SDK"
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/cors"
+	"github.com/martini-contrib/gzip"
 	"github.com/martini-contrib/secure"
 	"github.com/satori/go.uuid"
 	"log"
@@ -38,6 +39,8 @@ const (
 var db *sql.DB
 var stringSizeLimit int
 var botDetection common.BotDetection
+var gzipResponse bool
+var gzipCompressionLevel int
 
 func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
 	if len(field) > sizeLimit {
@@ -141,6 +144,11 @@ func runHttpServer() {
 	}
 
 	log.Printf("Allowable header names: %s", allowHeaders)
+
+	//GZIP responses
+	if gzipResponse {
+		martini_.Use(gzip.All(gzip.Options{CompressionLevel: gzipCompressionLevel}))
+	}
 
 	martini_.Use(cors.Allow(&cors.Options{
 		AllowOrigins:     []string{"*"},
@@ -355,6 +363,31 @@ func main() {
 	botDetection = common.BotDetection{botDetectionFieldLocation, botDetectionFieldName, botDetectionFieldValue, botDetectionMustMatch, botDetectionPlayCoy}
 
 	log.Printf("Creating robot detection with %#v", botDetection)
+
+	//GZIP response compression
+	gzipCompressionLevelStr := common.GetenvWithDefault("GZIP_COMPRESSION_LEVEL", "6")
+	gzipCompressionLevel, err = strconv.Atoi(gzipCompressionLevelStr)
+	if nil != err {
+		gzipCompressionLevel = 6
+		log.Printf("Error setting gzip compression level from value: %s. Default to %d", gzipCompressionLevelStr, gzipCompressionLevel)
+		log.Print(err)
+	} else if gzipCompressionLevel < 1 || gzipCompressionLevel > 9 {
+		gzipCompressionLevel = 6
+		log.Printf("Error setting gzip compression level from value: %d. Default to %d", gzipCompressionLevelStr, gzipCompressionLevel)
+	}
+
+	gzipResponseStr := common.GetenvWithDefault("GZIP_RESPONSE", "true")
+	gzipResponse, err = strconv.ParseBool(gzipResponseStr)
+	if nil != err {
+		gzipResponse = true
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to true.", "GZIP_RESPONSE", gzipResponseStr)
+		log.Print(err)
+	}
+	if gzipResponse {
+		log.Printf("Gzip response encoding enabled with level %d", gzipCompressionLevel)
+	} else {
+		log.Print("Gzip response encoding disabled")
+	}
 
 	//Asynchronous payment processing
 	asyncRequestSizeStr := common.GetenvWithDefault("ASYNC_REQUEST_SIZE", "100000")
