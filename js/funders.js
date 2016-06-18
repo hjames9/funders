@@ -7,6 +7,7 @@
  * funder.setPaymentsPath("/payments"); //Optional, default: "/payments"
  * funder.setPledgesPath("/pledges"); //Optional, default: "/pledges"
  * funder.setAdvertisementsPath("/advertisements"); //Optional, default: "/advertisements"
+ * funder.setPreventCaching(false); //Optional, default: true
  *
  * funder.getCampaign(params); //Synchronous
  * funder.getCampaign(params, //Asynchronous
@@ -128,6 +129,7 @@ function Funder()
     this.paymentsPath = "/payments";
     this.pledgesPath = "/pledges";
     this.advertisementsPath = "/advertisements";
+    this.preventCaching = true;
     this.adhocFields = {};
     this.adhocHeaders = {};
 };
@@ -177,7 +179,15 @@ Funder.prototype.setAdvertisementsPath = function(advertisementsPath) {
 };
 
 Funder.prototype.getAdvertisementsPath = function() {
-    return this.advertisementsPath ;
+    return this.advertisementsPath;
+};
+
+Funder.prototype.setPreventCaching = function(preventCaching) {
+    this.preventCaching = preventCaching;
+};
+
+Funder.prototype.getPreventCaching = function() {
+    return this.preventCaching;
 };
 
 Funder.prototype.getCampaign = function(params, successFunc, errorFunc) {
@@ -285,6 +295,12 @@ Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url,
         }
         else
         {
+            if(this.preventCaching)
+            {
+                //Add random parameter to prevent caching
+                requestStr += "&" + Array(16+1).join((Math.random().toString(36)+'00000000000000000').slice(2, 18)).slice(0, 16);
+            }
+
             xmlHttp.open(method, url + "?" + requestStr, async);
             setHeaders();
             xmlHttp.send();
