@@ -85,9 +85,9 @@ func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 
 		payment.UpdateState("failure")
 
-		if _, err = url.Parse(redirectURI); nil != err {
+		if _, urlErr := url.Parse(redirectURI); nil != urlErr {
 			err = common.RequestError{fmt.Sprintf("Redirect URI is invalid: %s", redirectURI), common.BadRequestError}
-		} else if _, err = url.Parse(cancelURI); nil != err {
+		} else if _, urlErr := url.Parse(cancelURI); nil != urlErr {
 			err = common.RequestError{fmt.Sprintf("Cancel URI is invalid: %s", cancelURI), common.BadRequestError}
 		} else if nil != paymentResult && len(paymentResult.ID) == 0 {
 			err = common.RequestError{err.Error(), common.ServerError}
