@@ -50,6 +50,25 @@ ALTER SEQUENCE perks_id_seq INCREMENT BY 3 START WITH 31337 RESTART WITH 31337;
 
 CREATE UNIQUE INDEX p_name_idx ON perks(name, campaign_id);
 
+CREATE TABLE pledges
+(
+    id UUID NOT NULL PRIMARY KEY,
+    campaign_id INT8 NOT NULL REFERENCES campaigns (id) ON DELETE CASCADE,
+    perk_id INT8 NOT NULL REFERENCES perks (id) ON DELETE CASCADE,
+    contact_email VARCHAR NULL,
+    phone_number VARCHAR NULL,
+    contact_opt_in BOOLEAN NOT NULL DEFAULT(true),
+    amount NUMERIC NOT NULL,
+    currency VARCHAR NOT NULL,
+    advertise BOOLEAN NOT NULL DEFAULT(true),
+    advertise_name VARCHAR NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
+    CHECK(contact_email IS NOT NULL OR phone_number IS NOT NULL),
+    CHECK(advertise = FALSE OR (advertise = TRUE AND advertise_name IS NOT NULL))
+);
+
 CREATE TABLE payments
 (
     id UUID NOT NULL PRIMARY KEY,
@@ -72,29 +91,11 @@ CREATE TABLE payments
     advertise_other VARCHAR NULL,
     payment_processor_responses JSONB[] NULL,
     payment_processor_used VARCHAR NULL,
+    pledge_id UUID NULL REFERENCES pledges (id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
     CHECK(amount > 0)
-);
-
-CREATE TABLE pledges
-(
-    id UUID NOT NULL PRIMARY KEY,
-    campaign_id INT8 NOT NULL REFERENCES campaigns (id) ON DELETE CASCADE,
-    perk_id INT8 NOT NULL REFERENCES perks (id) ON DELETE CASCADE,
-    contact_email VARCHAR NULL,
-    phone_number VARCHAR NULL,
-    contact_opt_in BOOLEAN NOT NULL DEFAULT(true),
-    amount NUMERIC NOT NULL,
-    currency VARCHAR NOT NULL,
-    advertise BOOLEAN NOT NULL DEFAULT(true),
-    advertise_name VARCHAR NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
-    CHECK(contact_email IS NOT NULL OR phone_number IS NOT NULL),
-    CHECK(advertise = FALSE OR (advertise = TRUE AND advertise_name IS NOT NULL))
 );
 
 CREATE VIEW campaign_backers

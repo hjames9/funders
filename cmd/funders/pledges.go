@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	ADD_PLEDGE_QUERY = "INSERT INTO funders.pledges(id, campaign_id, perk_id, contact_email, phone_number, contact_opt_in, amount, currency, advertise, advertise_name, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id"
-	PLEDGES_URL      = "/pledges"
+	GET_PLEDGES_QUERY = "SELECT id, campaign_id, perk_id, amount, currency FROM funders.active_pledges"
+	GET_PLEDGE_QUERY  = "SELECT id, campaign_id, perk_id, amount, currency FROM funders.active_pledges WHERE id = $1"
+	ADD_PLEDGE_QUERY  = "INSERT INTO funders.pledges(id, campaign_id, perk_id, contact_email, phone_number, contact_opt_in, amount, currency, advertise, advertise_name, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id"
+	PLEDGES_URL       = "/pledges"
 )
 
 type Pledge struct {
@@ -110,6 +112,39 @@ func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding
 	}
 
 	return errors
+}
+
+type Pledges struct {
+	lock   sync.RWMutex
+	values map[string]*Pledge
+}
+
+func NewPledges() *Pledges {
+	pledges := new(Pledges)
+	pledges.values = make(map[string]*Pledge)
+	return pledges
+}
+
+func (ps *Pledges) AddOrReplacePledge(pledge *Pledge) *Pledge {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+	ps.values[pledge.Id] = pledge
+	return pledge
+}
+
+func (ps *Pledges) AddOrReplacePledges(pledges []*Pledge) {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+	for _, pledge := range pledges {
+		ps.values[pledge.Id] = pledge
+	}
+}
+
+func (ps *Pledges) GetPledge(id string) (*Pledge, bool) {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	val, exists := ps.values[id]
+	return val, exists
 }
 
 //Background pledge threads
@@ -208,9 +243,63 @@ func makePledge(pledge *Pledge, waitGroup *sync.WaitGroup) {
 	}
 }
 
+var pledges = NewPledges()
+
+func getPledgesFromDb() ([]*Pledge, error) {
+	rows, err := db.Query(GET_PLEDGES_QUERY)
+	if nil != err {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var pledges []*Pledge
+	for rows.Next() {
+		var pledge Pledge
+		err = rows.Scan(&pledge.Id, &pledge.CampaignId, &pledge.PerkId, &pledge.Amount, &pledge.Currency)
+		if nil == err {
+			pledges = append(pledges, &pledge)
+		} else {
+			break
+		}
+	}
+
+	if nil == err {
+		err = rows.Err()
+	}
+
+	return pledges, err
+}
+
+func getPledgeFromDb(id string) (Pledge, error) {
+	var pledge Pledge
+	err := db.QueryRow(GET_PLEDGE_QUERY, id).Scan(&pledge.Id, &pledge.CampaignId, &pledge.PerkId, &pledge.Amount, &pledge.Currency)
+	return pledge, err
+}
+
+func getPledge(id string) (*Pledge, error) {
+	var err error
+	pledge, exists := pledges.GetPledge(id)
+	if !exists {
+		var pledgeDb Pledge
+		pledgeDb, err = getPledgeFromDb(id)
+		if nil == err {
+			pledge = pledges.AddOrReplacePledge(&pledgeDb)
+			log.Print("Retrieved pledge from database")
+		} else {
+			log.Print("Pledge not found in database")
+		}
+	} else {
+		log.Print("Retrieved pledge from cache")
+	}
+
+	return pledge, err
+}
+
 func makePledgeHandler(res http.ResponseWriter, req *http.Request, pledge Pledge) (int, string) {
 	pledge.Id = uuid.NewV4().String()
 
+	pledges.AddOrReplacePledge(&pledge)
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)
 	res.Header().Set(LOCATION_HEADER, fmt.Sprintf("%s?id=%s", PLEDGES_URL, pledge.Id))
 

@@ -486,6 +486,16 @@ func main() {
 		log.Printf("Initialized %d payments", len(pys))
 	}
 
+	//Initialize pledges
+	pls, err := getPledgesFromDb()
+	if nil != err {
+		log.Print(err)
+		log.Fatal("Could not initialize pledges")
+	} else {
+		pledges.AddOrReplacePledges(pls)
+		log.Printf("Initialized %d pledges", len(pls))
+	}
+
 	//Initialize advertisements
 	ads, err := getAdvertisementsFromDb()
 	if nil != err {

@@ -76,6 +76,7 @@ COMMENT ON COLUMN payments.advertise IS 'Whether to advertise user''s payment';
 COMMENT ON COLUMN payments.advertise_other IS 'Use alternate value to advertise user''s payment';
 COMMENT ON COLUMN payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN payments.payment_processor_used IS 'Payment processor used to process this payment';
+COMMENT ON COLUMN payments.pledge_id IS 'Reference to pledge that payment is associated with';
 COMMENT ON COLUMN payments.created_at IS 'Timestamp of payment creation.';
 COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was updated';
 

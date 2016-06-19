@@ -20,7 +20,7 @@ const (
 	GET_PAYMENT_STATES_QUERY = "SELECT enum_range(NULL::funders.payment_state) AS payment_states"
 	GET_PAYMENTS_QUERY       = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments"
 	GET_PAYMENT_QUERY        = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments WHERE id = $1"
-	ADD_PAYMENT_QUERY        = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id"
+	ADD_PAYMENT_QUERY        = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, pledge_id, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING id"
 	EMAIL_REGEX              = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
 	UUID_REGEX               = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
 	PAYMENTS_URL             = "/payments"
@@ -58,6 +58,7 @@ type Payment struct {
 	PaymentProcessorResponses string
 	PaymentProcessorUsed      string
 	FailureReason             string
+	PledgeId                  string `form:"pledgeId"`
 	lock                      sync.RWMutex
 }
 
@@ -147,6 +148,7 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 	errors = validateSizeLimit(payment.Country, "country", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.ContactEmail, "contactEmail", stringSizeLimit, errors)
 	errors = validateSizeLimit(payment.AdvertiseOther, "advertiseOther", stringSizeLimit, errors)
+	errors = validateSizeLimit(payment.PledgeId, "pledgeId", stringSizeLimit, errors)
 
 	if len(errors) == 0 {
 		if !accountTypes[payment.AccountType] {
@@ -200,6 +202,22 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 		} else {
 			message := fmt.Sprintf("Campaign not found with id: %d", payment.CampaignId)
 			errors = addError(errors, []string{"campaignId"}, binding.TypeError, message)
+		}
+
+		if len(payment.PledgeId) > 0 {
+			pledge, exists := pledges.GetPledge(payment.PledgeId)
+			if !exists {
+				message := fmt.Sprintf("Pledge not found with id: %d", payment.PledgeId)
+				errors = addError(errors, []string{"pledgeId"}, binding.TypeError, message)
+			} else if campaign.Id != pledge.CampaignId {
+				message := fmt.Sprintf("Pledge %d on campaign %d does not match requested campaign id: %d", pledge.Id, pledge.CampaignId, payment.CampaignId)
+				errors = addError(errors, []string{"pledgeId", "campaignId"}, binding.TypeError, message)
+			} else if perk.Id != pledge.PerkId {
+				message := fmt.Sprintf("Pledge %d on perk %d does not match requested perk id: %d", pledge.Id, pledge.PerkId, payment.PerkId)
+				errors = addError(errors, []string{"pledgeId", "perkId"}, binding.TypeError, message)
+			}
+		} else {
+			log.Print("No pledge id associated with payment")
 		}
 
 		if botDetection.IsBot(req) {
@@ -394,11 +412,12 @@ func addPayment(payment *Payment, statement *sql.Stmt) error {
 	address2 := common.CreateSqlString(payment.Address2)
 	contactEmail := common.CreateSqlString(payment.ContactEmail)
 	advertiseOther := common.CreateSqlString(payment.AdvertiseOther)
+	pledgeId := common.CreateSqlString(payment.PledgeId)
 
 	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&payment.Id)
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, pledgeId, time.Now(), time.Now()).Scan(&payment.Id)
 	} else {
-		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, time.Now(), time.Now()).Scan(&payment.Id)
+		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, pledgeId, time.Now(), time.Now()).Scan(&payment.Id)
 	}
 
 	if nil == err {
