@@ -55,7 +55,7 @@
 
 function getParameterFromNvp(name, value)
 {
-    return "&" + name + "=" + encodeURIComponent(value);
+    return name + "=" + encodeURIComponent(value) + "&";
 };
 
 function isBetween(value, min, max)
@@ -96,7 +96,7 @@ function isError(code)
 function useMethodBody(method)
 {
     switch(method)
-    {   
+    {
     case "GET":
     case "HEAD":
     case "OPTIONS":
@@ -107,7 +107,7 @@ function useMethodBody(method)
     case "DELETE":
     default:
         return true;
-    }   
+    }
 };
 
 function convertJSONToURLEncodedString(json)
@@ -268,7 +268,7 @@ Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url,
     try
     {
         var methodBody = useMethodBody(method);
-        var requestStr = convertJSONToURLEncodedString(params);
+        var requestStr = convertJSONToURLEncodedString(params) + "&";
 
         for(var key in this.adhocFields) {
             if(this.adhocFields.hasOwnProperty(key)) {
@@ -298,7 +298,7 @@ Funder.prototype.internalRequest = function(params, successFunc, errorFunc, url,
             if(this.preventCaching)
             {
                 //Add random parameter to prevent caching
-                requestStr += "&" + Array(16+1).join((Math.random().toString(36)+'00000000000000000').slice(2, 18)).slice(0, 16);
+                requestStr += Array(16+1).join((Math.random().toString(36)+'00000000000000000').slice(2, 18)).slice(0, 16);
             }
 
             xmlHttp.open(method, url + "?" + requestStr, async);
