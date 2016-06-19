@@ -18,7 +18,7 @@ import (
 
 const (
 	ADD_CAMPAIGN_QUERY    = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
-	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, currency, available, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id"
+	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, currency, available_for_payment, available_for_pledge, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"
 	RM_CAMPAIGN_QUERY     = "DELETE FROM funders.campaigns WHERE name = $1"
 	RM_PERK_QUERY         = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
 	UPDATE_CAMPAIGN_QUERY = "UPDATE funders.campaigns SET updated_at = $1, ? WHERE name = ?"
@@ -90,11 +90,12 @@ func getCampaignFromCommandLine() (common.Campaign, error) {
 
 func getPerkFromCommandLine() (common.Perk, error) {
 	var (
-		perk         common.Perk
-		err          error
-		priceStr     string
-		availableStr string
-		shipDateStr  string
+		perk                   common.Perk
+		err                    error
+		priceStr               string
+		availableForPaymentStr string
+		availableForPledgeStr  string
+		shipDateStr            string
 	)
 
 	for {
@@ -135,9 +136,16 @@ func getPerkFromCommandLine() (common.Perk, error) {
 			break
 		}
 
-		fmt.Print("Enter perk available: ")
-		availableStr, err = reader.ReadString('\n')
-		perk.Available, err = strconv.ParseInt(strings.TrimSpace(availableStr), 10, 64)
+		fmt.Print("Enter perk available for payment: ")
+		availableForPaymentStr, err = reader.ReadString('\n')
+		perk.AvailableForPayment, err = strconv.ParseInt(strings.TrimSpace(availableForPaymentStr), 10, 64)
+		if nil != err {
+			break
+		}
+
+		fmt.Print("Enter perk available for pledge: ")
+		availableForPledgeStr, err = reader.ReadString('\n')
+		perk.AvailableForPledge, err = strconv.ParseInt(strings.TrimSpace(availableForPledgeStr), 10, 64)
 		if nil != err {
 			break
 		}
@@ -161,7 +169,7 @@ func addCampaignToDatabase(db *sql.DB, campaign *common.Campaign) (int64, error)
 }
 
 func addPerkToDatabase(db *sql.DB, perk *common.Perk) (int64, error) {
-	err := db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Currency, perk.Available, perk.ShipDate, time.Now(), time.Now()).Scan(&perk.Id)
+	err := db.QueryRow(ADD_PERK_QUERY, perk.CampaignName, perk.Name, perk.Description, perk.Price, perk.Currency, perk.AvailableForPayment, perk.AvailableForPledge, perk.ShipDate, time.Now(), time.Now()).Scan(&perk.Id)
 	return perk.Id, err
 }
 

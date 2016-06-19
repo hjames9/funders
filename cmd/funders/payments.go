@@ -173,8 +173,8 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 
 		perk, exists := perks.GetPerk(payment.PerkId)
 		if exists {
-			if !perk.IsAvailable() {
-				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed or pledged", perk.NumClaimed+perk.NumPledged, perk.Available)
+			if !perk.IsAvailableForPayment() {
+				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed", perk.NumClaimed, perk.AvailableForPayment)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
 			} else {
 				payment.Amount = perk.Price

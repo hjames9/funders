@@ -13,15 +13,19 @@ import (
 )
 
 const (
-	GET_ALL_PERKS_QUERY = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed, num_pledged FROM funders.perk_claims WHERE active = TRUE"
-	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available, ship_date, num_claimed, num_pledged FROM funders.perk_claims WHERE active = TRUE AND campaign_name = $1"
+	GET_ALL_PERKS_QUERY = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available_for_payment, available_for_pledge, ship_date, num_claimed, num_pledged FROM funders.perk_claims WHERE active = TRUE"
+	GET_PERKS_QUERY     = "SELECT id, campaign_id, campaign_name, name, description, price, currency, available_for_payment, available_for_pledge, ship_date, num_claimed, num_pledged FROM funders.perk_claims WHERE active = TRUE AND campaign_name = $1"
 	PERKS_URL           = "/perks"
 )
 
 type Perk common.Perk
 
-func (perk *Perk) IsAvailable() bool {
-	return perk.Available > (perk.NumClaimed + perk.NumPledged)
+func (perk *Perk) IsAvailableForPayment() bool {
+	return perk.AvailableForPayment > perk.NumClaimed
+}
+
+func (perk *Perk) IsAvailableForPledge() bool {
+	return perk.AvailableForPledge > perk.NumPledged
 }
 
 func (perk *Perk) IncrementNumClaimed(amount int64) int64 {
@@ -121,7 +125,7 @@ func getPerksFromDb(args ...string) ([]*Perk, error) {
 	var perks []*Perk
 	for rows.Next() {
 		var perk Perk
-		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.Available, &perk.ShipDate, &perk.NumClaimed, &perk.NumPledged)
+		err = rows.Scan(&perk.Id, &perk.CampaignId, &perk.CampaignName, &perk.Name, &perk.Description, &perk.Price, &perk.Currency, &perk.AvailableForPayment, &perk.AvailableForPledge, &perk.ShipDate, &perk.NumClaimed, &perk.NumPledged)
 		if nil == err {
 			perks = append(perks, &perk)
 		} else {

@@ -18,9 +18,9 @@ type Campaign struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	Goal        float64      `json:"goal"`
-	NumRaised   float64      `json:"-"`
+	AmtRaised   float64      `json:"-"`
 	NumBackers  int64        `json:"-"`
-	NumPledged  float64      `json:"-"`
+	AmtPledged  float64      `json:"-"`
 	NumPledgers int64        `json:"-"`
 	StartDate   time.Time    `json:"startDate"`
 	EndDate     time.Time    `json:"endDate"`
@@ -29,18 +29,19 @@ type Campaign struct {
 }
 
 type Perk struct {
-	Id           int64        `json:"id"`
-	CampaignId   int64        `json:"campaignId"`
-	CampaignName string       `json:"campaignName"`
-	Name         string       `json:"name"`
-	Description  string       `json:"description"`
-	Price        float64      `json:"price"`
-	Currency     string       `json:"currency"`
-	Available    int64        `json:"available"`
-	ShipDate     time.Time    `json:"shipDate"`
-	NumClaimed   int64        `json:"-"`
-	NumPledged   int64        `json:"-"`
-	Lock         sync.RWMutex `json:"-"`
+	Id                  int64        `json:"id"`
+	CampaignId          int64        `json:"campaignId"`
+	CampaignName        string       `json:"campaignName"`
+	Name                string       `json:"name"`
+	Description         string       `json:"description"`
+	Price               float64      `json:"price"`
+	Currency            string       `json:"currency"`
+	AvailableForPayment int64        `json:"availableForPayment"`
+	AvailableForPledge  int64        `json:"availableForPledge"`
+	ShipDate            time.Time    `json:"shipDate"`
+	NumClaimed          int64        `json:"-"`
+	NumPledged          int64        `json:"-"`
+	Lock                sync.RWMutex `json:"-"`
 }
 
 type Response struct {

@@ -165,12 +165,12 @@ function loadFunders()
     campaign = funder.getCampaign(campaignParams);
 
     var progressBar = $("#progressbar");
-    progressBar.progressbar({max: campaign.goal, value: campaign.numRaised});
+    progressBar.progressbar({max: campaign.goal, value: campaign.amtRaised});
     $('#campaignName').text(campaign.name);
     $('#numBackers').text(campaign.numBackers);
-    $('#numRaised').text(campaign.numRaised);
+    $('#amtRaised').text(campaign.amtRaised);
     $('#numPledgers').text(campaign.numPledgers);
-    $('#numPledged').text(campaign.numPledged);
+    $('#amtPledged').text(campaign.amtPledged);
     $('#goal').text(campaign.goal);
     $('#startDate').text(campaign.startDate);
     $('#endDate').text(campaign.endDate);
@@ -185,7 +185,7 @@ function loadFunders()
     });
 
     $.each(perks, function(index, value) {
-        $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.numPledged + '</td><td>' + value.available + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + 'bc">Buy perk</button></td>' + '<td><button id="' + value.id + 'bp">Buy perk</button></td>' + '<td><button id="' + value.id + 'p">Pledge perk</button></td></tr>');
+        $('#perks').append('<tr><td>' + value.name + '</td><td>' + value.description + '</td><td>' + value.price + '</td><td>' + value.numClaimed + '</td><td>' + value.numPledged + '</td><td>' + value.availableForPayment + '</td><td>' + value.availableForPledge + '</td><td>' + value.shipDate + '</td><td><button id="' + value.id + 'bc">Buy perk</button></td>' + '<td><button id="' + value.id + 'bp">Buy perk</button></td>' + '<td><button id="' + value.id + 'p">Pledge perk</button></td></tr>');
         $("#" + value.id + "bc").click(buyPerkCreditCard);
         $("#" + value.id + "bp").click(buyPerkPaypal);
         $("#" + value.id + "p").click(pledgePerk);

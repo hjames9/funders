@@ -74,8 +74,8 @@ func (pledge *Pledge) Validate(errors binding.Errors, req *http.Request) binding
 
 		perk, exists := perks.GetPerk(pledge.PerkId)
 		if exists {
-			if !perk.IsAvailable() {
-				message := fmt.Sprintf("Perk is not available. (%d/%d) claimed or pledged", perk.NumClaimed+perk.NumPledged, perk.Available)
+			if !perk.IsAvailableForPledge() {
+				message := fmt.Sprintf("Perk is not available. (%d/%d) pledged", perk.NumPledged, perk.AvailableForPledge)
 				errors = addError(errors, []string{"perkId"}, binding.TypeError, message)
 			} else {
 				pledge.Amount = perk.Price
@@ -200,7 +200,7 @@ func makePledge(pledge *Pledge, waitGroup *sync.WaitGroup) {
 
 	campaign, exists := campaigns.GetCampaignById(pledge.CampaignId)
 	if exists {
-		campaign.IncrementNumPledged(pledge.Amount)
+		campaign.IncrementAmtPledged(pledge.Amount)
 		campaign.IncrementNumPledgers(1)
 		advertisements.AddAdvertisementFromPledge(campaign.Name, pledge)
 	} else {

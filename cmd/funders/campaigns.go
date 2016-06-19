@@ -13,18 +13,18 @@ import (
 )
 
 const (
-	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, num_raised, num_backers, num_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
-	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, num_raised, num_backers, num_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
+	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, amt_raised, num_backers, amt_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
+	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, amt_raised, num_backers, amt_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
 	CAMPAIGN_URL            = "/campaigns"
 )
 
 type Campaign common.Campaign
 
-func (campaign *Campaign) IncrementNumRaised(amount float64) float64 {
+func (campaign *Campaign) IncrementAmtRaised(amount float64) float64 {
 	campaign.Lock.Lock()
 	defer campaign.Lock.Unlock()
-	campaign.NumRaised += amount
-	return campaign.NumRaised
+	campaign.AmtRaised += amount
+	return campaign.AmtRaised
 }
 
 func (campaign *Campaign) IncrementNumBackers(amount int64) int64 {
@@ -34,11 +34,11 @@ func (campaign *Campaign) IncrementNumBackers(amount int64) int64 {
 	return campaign.NumBackers
 }
 
-func (campaign *Campaign) IncrementNumPledged(amount float64) float64 {
+func (campaign *Campaign) IncrementAmtPledged(amount float64) float64 {
 	campaign.Lock.Lock()
 	defer campaign.Lock.Unlock()
-	campaign.NumPledged += amount
-	return campaign.NumPledged
+	campaign.AmtPledged += amount
+	return campaign.AmtPledged
 }
 
 func (campaign *Campaign) IncrementNumPledgers(amount int64) int64 {
@@ -58,23 +58,23 @@ func (campaign *Campaign) HasEnded() bool {
 
 func (campaign *Campaign) MarshalJSON() ([]byte, error) {
 	campaign.Lock.RLock()
-	numRaised := campaign.NumRaised
+	amtRaised := campaign.AmtRaised
 	numBackers := campaign.NumBackers
-	numPledged := campaign.NumPledged
+	amtPledged := campaign.AmtPledged
 	numPledgers := campaign.NumPledgers
 	campaign.Lock.RUnlock()
 
 	type MyCampaign Campaign
 	return json.Marshal(&struct {
-		NumRaised   float64 `json:"numRaised"`
+		AmtRaised   float64 `json:"amtRaised"`
 		NumBackers  int64   `json:"numBackers"`
-		NumPledged  float64 `json:"numPledged"`
+		AmtPledged  float64 `json:"amtPledged"`
 		NumPledgers int64   `json:"numPledgers"`
 		*MyCampaign
 	}{
-		NumRaised:   numRaised,
+		AmtRaised:   amtRaised,
 		NumBackers:  numBackers,
-		NumPledged:  numPledged,
+		AmtPledged:  amtPledged,
 		NumPledgers: numPledgers,
 		MyCampaign:  (*MyCampaign)(campaign),
 	})
@@ -137,7 +137,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 	var campaigns []*Campaign
 	for rows.Next() {
 		var campaign Campaign
-		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.NumPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.AmtRaised, &campaign.NumBackers, &campaign.AmtPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 		if nil == err {
 			campaigns = append(campaigns, &campaign)
 		} else {
@@ -154,7 +154,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 
 func getCampaignFromDb(name string) (Campaign, error) {
 	var campaign Campaign
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.NumRaised, &campaign.NumBackers, &campaign.NumPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.AmtRaised, &campaign.NumBackers, &campaign.AmtPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 	return campaign, err
 }
 

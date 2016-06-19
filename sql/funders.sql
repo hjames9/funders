@@ -36,12 +36,14 @@ CREATE TABLE perks
     description VARCHAR NOT NULL,
     price NUMERIC NOT NULL,
     currency VARCHAR NOT NULL,
-    available INT8 NOT NULL,
+    available_for_payment INT8 NOT NULL,
+    available_for_pledge INT8 NOT NULL,
     ship_date DATE NOT NULL,
     active BOOLEAN NOT NULL DEFAULT(true),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    CHECK(price > 0)
+    CHECK(price > 0),
+    CHECK(available_for_payment > 0 OR available_for_pledge > 0)
 );
 
 ALTER SEQUENCE perks_id_seq INCREMENT BY 3 START WITH 31337 RESTART WITH 31337;
@@ -72,7 +74,8 @@ CREATE TABLE payments
     payment_processor_used VARCHAR NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$')
+    CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
+    CHECK(amount > 0)
 );
 
 CREATE TABLE pledges
@@ -100,9 +103,9 @@ SELECT id,
        name,
        description,
        goal,
-       CASE WHEN num_raised IS NULL THEN 0 ELSE num_raised END,
+       CASE WHEN amt_raised IS NULL THEN 0 ELSE amt_raised END,
        CASE WHEN num_backers IS NULL THEN 0 ELSE num_backers END,
-       CASE WHEN num_pledged IS NULL THEN 0 ELSE num_pledged END,
+       CASE WHEN amt_pledged IS NULL THEN 0 ELSE amt_pledged END,
        CASE WHEN num_pledgers IS NULL THEN 0 ELSE num_pledgers END,
        start_date,
        end_date,
@@ -111,7 +114,7 @@ SELECT id,
 FROM campaigns
 LEFT OUTER JOIN
     (SELECT campaign_id,
-            sum(amount) AS num_raised,
+            sum(amount) AS amt_raised,
             COUNT(1) AS num_backers
     FROM payments
     WHERE state = 'success'
@@ -119,7 +122,7 @@ LEFT OUTER JOIN
 ON campaigns.id = backers.campaign_id
 LEFT OUTER JOIN
     (SELECT campaign_id,
-            sum(amount) AS num_pledged,
+            sum(amount) AS amt_pledged,
             COUNT(1) AS num_pledgers
     FROM pledges
     GROUP BY campaign_id) pledgers
@@ -135,7 +138,8 @@ SELECT perks.id,
        perks.description,
        price,
        currency,
-       available,
+       available_for_payment,
+       available_for_pledge,
        ship_date,
        CASE WHEN num_claimed IS NULL THEN 0 ELSE num_claimed END,
        CASE WHEN num_pledged IS NULL THEN 0 ELSE num_pledged END,

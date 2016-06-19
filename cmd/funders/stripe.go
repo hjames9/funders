@@ -98,7 +98,7 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 		if ch.Paid {
 			payment.UpdateState("success")
 			if campaignExists {
-				campaign.IncrementNumRaised(payment.Amount)
+				campaign.IncrementAmtRaised(payment.Amount)
 				campaign.IncrementNumBackers(1)
 				advertisements.AddAdvertisementFromPayment(campaign.Name, payment)
 			}

@@ -162,7 +162,7 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 		}
 
 		if campaignExists {
-			campaign.IncrementNumRaised(payment.Amount)
+			campaign.IncrementAmtRaised(payment.Amount)
 			campaign.IncrementNumBackers(1)
 		}
 
