@@ -210,10 +210,10 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 				message := fmt.Sprintf("Pledge not found with id: %d", payment.PledgeId)
 				errors = addError(errors, []string{"pledgeId"}, binding.TypeError, message)
 			} else if campaign.Id != pledge.CampaignId {
-				message := fmt.Sprintf("Pledge %d on campaign %d does not match requested campaign id: %d", pledge.Id, pledge.CampaignId, payment.CampaignId)
+				message := fmt.Sprintf("Pledge %s on campaign %d does not match requested campaign id: %d", pledge.Id, pledge.CampaignId, payment.CampaignId)
 				errors = addError(errors, []string{"pledgeId", "campaignId"}, binding.TypeError, message)
 			} else if perk.Id != pledge.PerkId {
-				message := fmt.Sprintf("Pledge %d on perk %d does not match requested perk id: %d", pledge.Id, pledge.PerkId, payment.PerkId)
+				message := fmt.Sprintf("Pledge %s on perk %d does not match requested perk id: %d", pledge.Id, pledge.PerkId, payment.PerkId)
 				errors = addError(errors, []string{"pledgeId", "perkId"}, binding.TypeError, message)
 			}
 		} else {

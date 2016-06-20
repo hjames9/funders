@@ -22,9 +22,14 @@ function buyPerkCreditCard(event)
                           "postalCode" : "10467",
                           "country" : "US",
                           "advertise" : true,
-                          "advertiseOther" : "Philly Bronx",
-                          "pledgeId" : "8ae7e044-09f4-4e9e-981d-a6110e8bdc38"
+                          "advertiseOther" : "Philly Bronx"
                         };
+
+    if(perkId == 31337)
+    {
+        console.log("Adding pledge id to payment");
+        paymentParams["pledgeId"] = "8ae7e044-09f4-4e9e-981d-a6110e8bdc38";
+    }
 
     successFunc = function(response, status, fun)
     {
