@@ -83,6 +83,7 @@ COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was upd
 COMMENT ON CONSTRAINT payments_pkey ON payments IS 'Primary key constraint for payments id column';
 COMMENT ON CONSTRAINT payments_campaign_id_fkey ON payments IS 'Foreign key constraint for campaigns id column';
 COMMENT ON CONSTRAINT payments_perk_id_fkey ON payments IS 'Foreign key constraint for perks id column';
+COMMENT ON CONSTRAINT payments_pledge_id_fkey ON payments IS 'Foreign key constraint for pledges id column';
 COMMENT ON CONSTRAINT payments_contact_email_check ON payments IS 'Check constraint for payments table to make sure contact email is valid if provided';
 COMMENT ON CONSTRAINT payments_amount_check ON payments IS 'Check constraint for payments table to make sure payment amount is positive';
 
