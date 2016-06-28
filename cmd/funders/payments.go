@@ -18,8 +18,8 @@ import (
 const (
 	GET_ACCOUNT_TYPES_QUERY  = "SELECT enum_range(NULL::funders.account_type) AS account_types"
 	GET_PAYMENT_STATES_QUERY = "SELECT enum_range(NULL::funders.payment_state) AS payment_states"
-	GET_PAYMENTS_QUERY       = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments"
-	GET_PAYMENT_QUERY        = "SELECT id, campaign_id, perk_id, account_type, state FROM funders.active_payments WHERE id = $1"
+	GET_PAYMENTS_QUERY       = "SELECT id, campaign_id, perk_id, pledge_id, account_type, state FROM funders.active_payments"
+	GET_PAYMENT_QUERY        = "SELECT id, campaign_id, perk_id, pledge_id, account_type, state FROM funders.active_payments WHERE id = $1"
 	ADD_PAYMENT_QUERY        = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, pledge_id, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING id"
 	EMAIL_REGEX              = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
 	UUID_REGEX               = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
@@ -216,6 +216,12 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 				message := fmt.Sprintf("Pledge %s on perk %d does not match requested perk id: %d", pledge.Id, pledge.PerkId, payment.PerkId)
 				errors = addError(errors, []string{"pledgeId", "perkId"}, binding.TypeError, message)
 			}
+
+			_, exists = paymentsCache.GetPaymentByPledgeId(payment.PledgeId)
+			if exists {
+				message := fmt.Sprintf("Payment on pledge %s for perk %d already occurred", payment.PledgeId, payment.PerkId)
+				errors = addError(errors, []string{"pledgeId"}, binding.TypeError, message)
+			}
 		} else {
 			log.Print("No pledge id associated with payment")
 		}
@@ -230,20 +236,25 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 }
 
 type Payments struct {
-	lock   sync.RWMutex
-	values map[string]*Payment
+	lock          sync.RWMutex
+	paymentValues map[string]*Payment
+	pledgeValues  map[string]*Payment
 }
 
 func NewPayments() *Payments {
 	payments := new(Payments)
-	payments.values = make(map[string]*Payment)
+	payments.paymentValues = make(map[string]*Payment)
+	payments.pledgeValues = make(map[string]*Payment)
 	return payments
 }
 
 func (ps *Payments) AddOrReplacePayment(payment *Payment) *Payment {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
-	ps.values[payment.Id] = payment
+	ps.paymentValues[payment.Id] = payment
+	if len(payment.PledgeId) > 0 {
+		ps.pledgeValues[payment.PledgeId] = payment
+	}
 	return payment
 }
 
@@ -251,14 +262,24 @@ func (ps *Payments) AddOrReplacePayments(payments []*Payment) {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	for _, payment := range payments {
-		ps.values[payment.Id] = payment
+		ps.paymentValues[payment.Id] = payment
+		if len(payment.PledgeId) > 0 {
+			ps.pledgeValues[payment.PledgeId] = payment
+		}
 	}
 }
 
 func (ps *Payments) GetPayment(id string) (*Payment, bool) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
-	val, exists := ps.values[id]
+	val, exists := ps.paymentValues[id]
+	return val, exists
+}
+
+func (ps *Payments) GetPaymentByPledgeId(pledge_id string) (*Payment, bool) {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	val, exists := ps.pledgeValues[pledge_id]
 	return val, exists
 }
 
@@ -440,8 +461,12 @@ func getPaymentsFromDb() ([]*Payment, error) {
 	var payments []*Payment
 	for rows.Next() {
 		var payment Payment
-		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.AccountType, &payment.State)
+		var pledgeId sql.NullString
+		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &pledgeId, &payment.AccountType, &payment.State)
 		if nil == err {
+			if pledgeId.Valid {
+				payment.PledgeId = pledgeId.String
+			}
 			payments = append(payments, &payment)
 		} else {
 			break
@@ -457,7 +482,11 @@ func getPaymentsFromDb() ([]*Payment, error) {
 
 func getPaymentFromDb(id string) (Payment, error) {
 	var payment Payment
-	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &payment.AccountType, &payment.State)
+	var pledgeId sql.NullString
+	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &pledgeId, &payment.AccountType, &payment.State)
+	if pledgeId.Valid {
+		payment.PledgeId = pledgeId.String
+	}
 	return payment, err
 }
 

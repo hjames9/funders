@@ -98,6 +98,8 @@ CREATE TABLE payments
     CHECK(amount > 0)
 );
 
+CREATE UNIQUE INDEX payments_pledge_id_idx ON payments(pledge_id);
+
 CREATE VIEW campaign_backers
 AS
 SELECT id,
@@ -191,7 +193,8 @@ SELECT
     advertise,
     advertise_other,
     payment_processor_responses,
-    payment_processor_used
+    payment_processor_used,
+    pledge_id
 FROM payments
 INNER JOIN campaigns
 ON payments.campaign_id = campaigns.id
@@ -207,19 +210,24 @@ SELECT
     pledges.perk_id,
     campaigns.name AS campaign_name,
     perks.name AS perk_name,
-    amount,
+    pledges.amount,
     pledges.currency,
-    contact_email,
-    phone_number,
-    contact_opt_in,
-    advertise,
-    advertise_name
+    pledges.contact_email,
+    pledges.phone_number,
+    pledges.contact_opt_in,
+    pledges.advertise,
+    pledges.advertise_name
 FROM pledges
 INNER JOIN campaigns
 ON pledges.campaign_id = campaigns.id
 INNER JOIN perks
 ON pledges.perk_id = perks.id
-WHERE campaigns.active = TRUE AND perks.active = TRUE;
+LEFT OUTER JOIN payments
+ON pledges.id = payments.pledge_id
+WHERE campaigns.active = TRUE AND perks.active = TRUE
+AND payments.pledge_id IS NULL;
+--Alternatively can use a subquery and NOT IN but I believe LEFT OUTER JOIN is more performant
+--AND id NOT IN (SELECT pledge_id FROM payments WHERE pledge_id IS NOT NULL);
 
 CREATE VIEW advertisements
 AS
