@@ -86,6 +86,7 @@ COMMENT ON CONSTRAINT payments_perk_id_fkey ON payments IS 'Foreign key constrai
 COMMENT ON CONSTRAINT payments_pledge_id_fkey ON payments IS 'Foreign key constraint for pledges id column';
 COMMENT ON CONSTRAINT payments_contact_email_check ON payments IS 'Check constraint for payments table to make sure contact email is valid if provided';
 COMMENT ON CONSTRAINT payments_amount_check ON payments IS 'Check constraint for payments table to make sure payment amount is positive';
+COMMENT ON INDEX payments_pledge_id_idx IS 'B-tree index for pledge_id column for payments';
 
 -- Pledges
 
@@ -178,6 +179,7 @@ COMMENT ON COLUMN active_payments.advertise IS 'Whether to advertise user''s pay
 COMMENT ON COLUMN active_payments.advertise_other IS 'Use alternate value to advertise user''s payment';
 COMMENT ON COLUMN active_payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN active_payments.payment_processor_used IS 'Payment processor used to process this payment';
+COMMENT ON COLUMN active_payments.pledge_id IS 'Reference to pledge that payment is associated with';
 
 -- Active pledges
 
