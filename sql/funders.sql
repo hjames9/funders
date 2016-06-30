@@ -62,6 +62,7 @@ CREATE TABLE pledges
     currency VARCHAR NOT NULL,
     advertise BOOLEAN NOT NULL DEFAULT(true),
     advertise_name VARCHAR NULL,
+    replied_to BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
@@ -92,6 +93,7 @@ CREATE TABLE payments
     payment_processor_responses JSONB[] NULL,
     payment_processor_used VARCHAR NULL,
     pledge_id UUID NULL REFERENCES pledges (id) ON DELETE SET NULL,
+    replied_to BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
@@ -113,7 +115,9 @@ SELECT id,
        start_date,
        end_date,
        flexible,
-       active
+       active,
+       campaigns.created_at,
+       campaigns.updated_at
 FROM campaigns
 LEFT OUTER JOIN
     (SELECT campaign_id,
@@ -146,7 +150,9 @@ SELECT perks.id,
        ship_date,
        CASE WHEN num_claimed IS NULL THEN 0 ELSE num_claimed END,
        CASE WHEN num_pledged IS NULL THEN 0 ELSE num_pledged END,
-       perks.active
+       perks.active,
+       perks.created_at,
+       perks.updated_at
 FROM perks
 INNER JOIN campaigns
 ON perks.campaign_id = campaigns.id
@@ -194,7 +200,10 @@ SELECT
     advertise_other,
     payment_processor_responses,
     payment_processor_used,
-    pledge_id
+    pledge_id,
+    payments.replied_to,
+    payments.created_at,
+    payments.updated_at
 FROM payments
 INNER JOIN campaigns
 ON payments.campaign_id = campaigns.id
@@ -216,7 +225,10 @@ SELECT
     pledges.phone_number,
     pledges.contact_opt_in,
     pledges.advertise,
-    pledges.advertise_name
+    pledges.advertise_name,
+    pledges.replied_to,
+    pledges.created_at,
+    pledges.updated_at
 FROM pledges
 INNER JOIN campaigns
 ON pledges.campaign_id = campaigns.id

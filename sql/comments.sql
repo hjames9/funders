@@ -77,6 +77,7 @@ COMMENT ON COLUMN payments.advertise_other IS 'Use alternate value to advertise 
 COMMENT ON COLUMN payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN payments.payment_processor_used IS 'Payment processor used to process this payment';
 COMMENT ON COLUMN payments.pledge_id IS 'Reference to pledge that payment is associated with';
+COMMENT ON COLUMN payments.replied_to IS 'Whether payment user was replied to or not';
 COMMENT ON COLUMN payments.created_at IS 'Timestamp of payment creation.';
 COMMENT ON COLUMN payments.updated_at IS 'Timestamp of last time payment was updated';
 
@@ -102,6 +103,7 @@ COMMENT ON COLUMN pledges.amount IS 'Amount of the pledge';
 COMMENT ON COLUMN pledges.currency IS 'Currency of the pledge';
 COMMENT ON COLUMN pledges.advertise IS 'Whether to advertise user''s pledge';
 COMMENT ON COLUMN pledges.advertise_name IS 'Name to advertise user''s pledge';
+COMMENT ON COLUMN pledges.replied_to IS 'Whether pledge user was replied to or not';
 COMMENT ON COLUMN pledges.created_at IS 'Timestamp of pledge creation.';
 COMMENT ON COLUMN pledges.updated_at IS 'Timestamp of last time pledge was updated';
 
@@ -130,6 +132,8 @@ COMMENT ON COLUMN campaign_backers.start_date IS 'Start date of the campaign';
 COMMENT ON COLUMN campaign_backers.end_date IS 'End date of the campaign';
 COMMENT ON COLUMN campaign_backers.flexible IS 'Flag if campaign is flexible or not.  Flexible is if campaign is all or none';
 COMMENT ON COLUMN campaign_backers.active IS 'Flag if campaign is active or not';
+COMMENT ON COLUMN campaign_backers.created_at IS 'Timestamp of campaign creation';
+COMMENT ON COLUMN campaign_backers.updated_at IS 'Timestamp of last time campaign was updated';
 
 -- Perk claims
 
@@ -150,6 +154,8 @@ COMMENT ON COLUMN perk_claims.ship_date IS 'Ship date of the perk';
 COMMENT ON COLUMN perk_claims.num_claimed IS 'Number of items claimed for the perk';
 COMMENT ON COLUMN perk_claims.num_pledged IS 'Number of items pledged for the perk';
 COMMENT ON COLUMN perk_claims.active IS 'Flag if perk is active or not';
+COMMENT ON COLUMN perk_claims.created_at IS 'Timestamp of perk creation.';
+COMMENT ON COLUMN perk_claims.updated_at IS 'Timestamp of last time perk was updated';
 
 -- Active payments
 
@@ -180,6 +186,9 @@ COMMENT ON COLUMN active_payments.advertise_other IS 'Use alternate value to adv
 COMMENT ON COLUMN active_payments.payment_processor_responses IS 'Transaction responses from payment processor';
 COMMENT ON COLUMN active_payments.payment_processor_used IS 'Payment processor used to process this payment';
 COMMENT ON COLUMN active_payments.pledge_id IS 'Reference to pledge that payment is associated with';
+COMMENT ON COLUMN active_payments.replied_to IS 'Whether payment user was replied to or not';
+COMMENT ON COLUMN active_payments.created_at IS 'Timestamp of payment creation.';
+COMMENT ON COLUMN active_payments.updated_at IS 'Timestamp of last time payment was updated';
 
 -- Active pledges
 
@@ -199,6 +208,9 @@ COMMENT ON COLUMN active_pledges.phone_number IS 'Contact phone number of pledge
 COMMENT ON COLUMN active_pledges.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
 COMMENT ON COLUMN active_pledges.advertise IS 'Whether to advertise user''s pledge';
 COMMENT ON COLUMN active_pledges.advertise_name IS 'Use alternate value to advertise user''s pledge';
+COMMENT ON COLUMN active_pledges.replied_to IS 'Whether pledge user was replied to or not';
+COMMENT ON COLUMN active_pledges.created_at IS 'Timestamp of pledge creation.';
+COMMENT ON COLUMN active_pledges.updated_at IS 'Timestamp of last time pledge was updated';
 
 -- Advertisements
 
