@@ -50,7 +50,7 @@ func (ads *Advertisements) AddOrReplaceAdvertisements(advertisements []*Advertis
 }
 
 func (ads *Advertisements) AddAdvertisementFromPayment(campaignName string, payment *Payment) {
-	if payment.Advertise && payment.State == "success" {
+	if payment.Advertise && payment.Status == "success" {
 		var advertisement Advertisement
 
 		advertisement.Type = "payment"

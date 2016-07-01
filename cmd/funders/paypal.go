@@ -83,7 +83,7 @@ func makePaypalPayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 			payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(string(jsonStr), "\"", "\\\"", -1))
 		}
 
-		payment.UpdateState("failure")
+		payment.UpdateStatus("failure")
 
 		if _, urlErr := url.Parse(redirectURI); nil != urlErr {
 			err = common.RequestError{fmt.Sprintf("Redirect URI is invalid: %s", redirectURI), common.BadRequestError}
@@ -129,11 +129,11 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 		return common.RequestError{fmt.Sprintf("Perk not found %d", payment.PerkId), common.NotFoundError}
 	}
 
-	if updatePayment.State == "failure" {
-		message := "Failed state specified"
+	if updatePayment.Status == "failure" {
+		message := "Failed status specified"
 		log.Print(message)
 
-		payment.UpdateState("failure")
+		payment.UpdateStatus("failure")
 		payment.UpdateFailureReason(message)
 
 		paymentsCache.AddOrReplacePayment(updatePayment.payment)
@@ -150,7 +150,7 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 
 	executeResult, err := paypalClient.ExecuteApprovedPayment(updatePayment.PaypalPaymentId, updatePayment.PaypalPayerId)
 	if nil == err {
-		payment.UpdateState("success")
+		payment.UpdateStatus("success")
 		advertisements.AddAdvertisementFromPayment(campaign.Name, payment)
 
 		jsonStr, jsonErr := json.Marshal(executeResult)
@@ -171,7 +171,7 @@ func executePaypalPayment(updatePayment *UpdatePayment, waitGroup *sync.WaitGrou
 		}
 	} else {
 		log.Print(err)
-		payment.UpdateState("failure")
+		payment.UpdateStatus("failure")
 
 		jsonStr, jsonErr := json.Marshal(err)
 		if nil == jsonErr {

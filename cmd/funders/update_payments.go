@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, state = $4 WHERE id = $5"
+	UPDATE_PAYMENT_QUERY = "UPDATE funders.payments SET updated_at = $1, payment_processor_responses = payment_processor_responses || $2, payment_processor_used = $3, status = $4 WHERE id = $5"
 )
 
 type UpdatePayment struct {
 	Id              string `form:"id" binding:"required"`
 	AccountType     string `form:"accountType" binding:"required"`
-	State           string
+	Status          string
 	PaypalPayerId   string `form:"paypalPayerId"`
 	PaypalPaymentId string `form:"paypalPaymentId"`
 	PaypalToken     string `form:"paypalToken"`
@@ -34,7 +34,7 @@ func (updatePayment *UpdatePayment) MarshalJSON() ([]byte, error) {
 		Campaign      *Campaign `json:"campaign"`
 		PerkId        int64     `json:"perkId"`
 		Perk          *Perk     `json:"perk"`
-		State         string    `json:"state"`
+		Status        string    `json:"status"`
 		FailureReason string    `json:"failureReason,omitempty"`
 	}{
 		Id:            updatePayment.Id,
@@ -42,7 +42,7 @@ func (updatePayment *UpdatePayment) MarshalJSON() ([]byte, error) {
 		Campaign:      updatePayment.payment.Campaign,
 		PerkId:        updatePayment.payment.PerkId,
 		Perk:          updatePayment.payment.Perk,
-		State:         updatePayment.payment.State,
+		Status:        updatePayment.payment.Status,
 		FailureReason: updatePayment.payment.FailureReason,
 	})
 }
@@ -91,11 +91,11 @@ func (updatePayment *UpdatePayment) Validate(errors binding.Errors, req *http.Re
 				}
 			}
 
-			updatePayment.State = updatePayment.payment.State
+			updatePayment.Status = updatePayment.payment.Status
 
-			if updatePayment.payment.State != "pending" {
-				message := fmt.Sprintf("Only pending payments can be updated. State: \"%s\" specified", updatePayment.payment.State)
-				errors = addError(errors, []string{"state"}, binding.TypeError, message)
+			if updatePayment.payment.Status != "pending" {
+				message := fmt.Sprintf("Only pending payments can be updated. Status: \"%s\" specified", updatePayment.payment.Status)
+				errors = addError(errors, []string{"status"}, binding.TypeError, message)
 			}
 		}
 
@@ -180,7 +180,7 @@ func processBatchUpdatePayment(updatePaymentBatch []interface{}, waitGroup *sync
 }
 
 func updatePaymentInDb(payment *Payment) (*Payment, error) {
-	_, err := db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.PaymentProcessorUsed, payment.GetState(), payment.Id)
+	_, err := db.Exec(UPDATE_PAYMENT_QUERY, time.Now(), payment.PaymentProcessorResponses, payment.PaymentProcessorUsed, payment.GetStatus(), payment.Id)
 	return payment, err
 }
 

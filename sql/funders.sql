@@ -6,7 +6,7 @@ SET search_path TO funders,public;
 
 CREATE TYPE account_type AS ENUM('credit_card', 'paypal', 'bitcoin');
 
-CREATE TYPE payment_state AS ENUM('success', 'failure', 'pending');
+CREATE TYPE payment_status AS ENUM('success', 'failure', 'pending');
 
 CREATE TABLE campaigns
 (
@@ -63,6 +63,7 @@ CREATE TABLE pledges
     advertise BOOLEAN NOT NULL DEFAULT(true),
     advertise_name VARCHAR NULL,
     replied_to BOOLEAN NOT NULL DEFAULT FALSE,
+    requested_payment INT8 NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     CHECK(contact_email IS NULL OR contact_email ~* '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
@@ -85,7 +86,7 @@ CREATE TABLE payments
     country VARCHAR NOT NULL,
     amount NUMERIC NOT NULL,
     currency VARCHAR NOT NULL,
-    state PAYMENT_STATE NOT NULL,
+    status PAYMENT_STATUS NOT NULL,
     contact_email VARCHAR NULL,
     contact_opt_in BOOLEAN NOT NULL DEFAULT(true),
     advertise BOOLEAN NOT NULL DEFAULT(true),
@@ -124,7 +125,7 @@ LEFT OUTER JOIN
             sum(amount) AS amt_raised,
             COUNT(1) AS num_backers
     FROM payments
-    WHERE state = 'success'
+    WHERE status = 'success'
     GROUP BY campaign_id) backers
 ON campaigns.id = backers.campaign_id
 LEFT OUTER JOIN
@@ -161,7 +162,7 @@ LEFT OUTER JOIN
             perk_id,
             COUNT(1) AS num_claimed
     FROM payments
-    WHERE state = 'success'
+    WHERE status = 'success'
     GROUP BY campaign_id, perk_id) claimed
 ON perks.campaign_id = claimed.campaign_id
     AND perks.id = claimed.perk_id
@@ -193,7 +194,7 @@ SELECT
     country,
     amount,
     payments.currency,
-    state,
+    status,
     contact_email,
     contact_opt_in,
     advertise,
@@ -227,6 +228,7 @@ SELECT
     pledges.advertise,
     pledges.advertise_name,
     pledges.replied_to,
+    pledges.requested_payment,
     pledges.created_at,
     pledges.updated_at
 FROM pledges
@@ -237,7 +239,7 @@ ON pledges.perk_id = perks.id
 LEFT OUTER JOIN payments
 ON pledges.id = payments.pledge_id
 WHERE campaigns.active = TRUE AND perks.active = TRUE
-AND payments.pledge_id IS NULL;
+AND payments.pledge_id IS NULL OR payments.status <> 'success';
 --Alternatively can use a subquery and NOT IN but I believe LEFT OUTER JOIN is more performant
 --AND id NOT IN (SELECT pledge_id FROM payments WHERE pledge_id IS NOT NULL);
 
@@ -254,7 +256,7 @@ SELECT
 FROM active_payments
 INNER JOIN campaign_backers
 ON active_payments.campaign_id = campaign_backers.id
-WHERE active_payments.state = 'success'
+WHERE active_payments.status = 'success'
 UNION ALL
 SELECT
     'pledge',

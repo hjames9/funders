@@ -16,14 +16,14 @@ import (
 )
 
 const (
-	GET_ACCOUNT_TYPES_QUERY  = "SELECT enum_range(NULL::funders.account_type) AS account_types"
-	GET_PAYMENT_STATES_QUERY = "SELECT enum_range(NULL::funders.payment_state) AS payment_states"
-	GET_PAYMENTS_QUERY       = "SELECT id, campaign_id, perk_id, pledge_id, account_type, state FROM funders.active_payments"
-	GET_PAYMENT_QUERY        = "SELECT id, campaign_id, perk_id, pledge_id, account_type, state FROM funders.active_payments WHERE id = $1"
-	ADD_PAYMENT_QUERY        = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, state, contact_email, contact_opt_in, advertise, advertise_other, pledge_id, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING id"
-	EMAIL_REGEX              = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
-	UUID_REGEX               = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
-	PAYMENTS_URL             = "/payments"
+	GET_ACCOUNT_TYPES_QUERY    = "SELECT enum_range(NULL::funders.account_type) AS account_types"
+	GET_PAYMENT_STATUSES_QUERY = "SELECT enum_range(NULL::funders.payment_status) AS payment_statuses"
+	GET_PAYMENTS_QUERY         = "SELECT id, campaign_id, perk_id, pledge_id, account_type, status FROM funders.active_payments"
+	GET_PAYMENT_QUERY          = "SELECT id, campaign_id, perk_id, pledge_id, account_type, status FROM funders.active_payments WHERE id = $1"
+	ADD_PAYMENT_QUERY          = "INSERT INTO funders.payments(id, campaign_id, perk_id, account_type, name_on_payment, full_name, address1, address2, city, postal_code, country, amount, currency, status, contact_email, contact_opt_in, advertise, advertise_other, pledge_id, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING id"
+	EMAIL_REGEX                = "^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$"
+	UUID_REGEX                 = "^[a-z0-9]{8}-[a-z0-9]{4}-[1-5][a-z0-9]{3}-[a-z0-9]{4}-[a-z0-9]{12}$"
+	PAYMENTS_URL               = "/payments"
 )
 
 type Payment struct {
@@ -50,7 +50,7 @@ type Payment struct {
 	Country                   string `form:"country" "binding:"required"`
 	Amount                    float64
 	Currency                  string
-	State                     string
+	Status                    string
 	ContactEmail              string `form:"contactEmail"`
 	ContactOptIn              bool   `form:"contactOptIn"`
 	Advertise                 bool   `form:"advertise"`
@@ -62,17 +62,17 @@ type Payment struct {
 	lock                      sync.RWMutex
 }
 
-func (payment *Payment) UpdateState(state string) string {
+func (payment *Payment) UpdateStatus(status string) string {
 	payment.lock.Lock()
 	defer payment.lock.Unlock()
-	payment.State = state
-	return payment.State
+	payment.Status = status
+	return payment.Status
 }
 
-func (payment *Payment) GetState() string {
+func (payment *Payment) GetStatus() string {
 	payment.lock.RLock()
 	defer payment.lock.RUnlock()
-	return payment.State
+	return payment.Status
 }
 
 func (payment *Payment) UpdateFailureReason(failureReason string) string {
@@ -103,7 +103,7 @@ func (payment *Payment) GetPaypalApprovalUrl() string {
 
 func (payment *Payment) MarshalJSON() ([]byte, error) {
 	payment.lock.RLock()
-	state := payment.State
+	status := payment.Status
 	failureReason := payment.FailureReason
 	paypalApprovalUrl := payment.PaypalApprovalUrl
 	payment.lock.RUnlock()
@@ -115,7 +115,7 @@ func (payment *Payment) MarshalJSON() ([]byte, error) {
 		Campaign          *Campaign `json:"campaign"`
 		PerkId            int64     `json:"perkId"`
 		Perk              *Perk     `json:"perk"`
-		State             string    `json:"state"`
+		Status            string    `json:"status"`
 		FailureReason     string    `json:"failureReason,omitempty"`
 		PaypalApprovalUrl string    `json:"paypalApprovalUrl,omitempty"`
 	}{
@@ -124,7 +124,7 @@ func (payment *Payment) MarshalJSON() ([]byte, error) {
 		Campaign:          payment.Campaign,
 		PerkId:            payment.PerkId,
 		Perk:              payment.Perk,
-		State:             state,
+		Status:            status,
 		FailureReason:     failureReason,
 		PaypalApprovalUrl: paypalApprovalUrl,
 	})
@@ -207,7 +207,7 @@ func (payment *Payment) Validate(errors binding.Errors, req *http.Request) bindi
 		if len(payment.PledgeId) > 0 {
 			pledge, exists := pledges.GetPledge(payment.PledgeId)
 			if !exists {
-				message := fmt.Sprintf("Pledge not found with id: %d", payment.PledgeId)
+				message := fmt.Sprintf("Pledge not found with id: %s", payment.PledgeId)
 				errors = addError(errors, []string{"pledgeId"}, binding.TypeError, message)
 			} else if campaign.Id != pledge.CampaignId {
 				message := fmt.Sprintf("Pledge %s on campaign %d does not match requested campaign id: %d", pledge.Id, pledge.CampaignId, payment.CampaignId)
@@ -297,24 +297,24 @@ func getAccountTypes() string {
 	return accountTypesStr
 }
 
-func getPaymentStates() string {
-	var paymentStatesStr string
+func getPaymentStatuses() string {
+	var paymentStatusesStr string
 
-	err := db.QueryRow(GET_PAYMENT_STATES_QUERY).Scan(&paymentStatesStr)
+	err := db.QueryRow(GET_PAYMENT_STATUSES_QUERY).Scan(&paymentStatusesStr)
 	if nil != err {
 		log.Print(err)
 	} else {
-		paymentStatesStr = strings.Trim(paymentStatesStr, "{}")
+		paymentStatusesStr = strings.Trim(paymentStatusesStr, "{}")
 	}
 
-	return paymentStatesStr
+	return paymentStatusesStr
 }
 
 //Used for validation
 var emailRegex *regexp.Regexp
 var uuidRegex *regexp.Regexp
 var accountTypes map[string]bool
-var paymentStates map[string]bool
+var paymentStatuses map[string]bool
 
 //Asynchronous payments
 var asyncPaymentRequest bool
@@ -436,9 +436,9 @@ func addPayment(payment *Payment, statement *sql.Stmt) error {
 	pledgeId := common.CreateSqlString(payment.PledgeId)
 
 	if nil == statement {
-		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, pledgeId, time.Now(), time.Now()).Scan(&payment.Id)
+		err = db.QueryRow(ADD_PAYMENT_QUERY, payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetStatus(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, pledgeId, time.Now(), time.Now()).Scan(&payment.Id)
 	} else {
-		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetState(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, pledgeId, time.Now(), time.Now()).Scan(&payment.Id)
+		err = statement.QueryRow(payment.Id, payment.CampaignId, payment.PerkId, payment.AccountType, payment.NameOnPayment, payment.FullName, payment.Address1, address2, payment.City, payment.PostalCode, payment.Country, payment.Amount, payment.Currency, payment.GetStatus(), contactEmail, payment.ContactOptIn, payment.Advertise, advertiseOther, pledgeId, time.Now(), time.Now()).Scan(&payment.Id)
 	}
 
 	if nil == err {
@@ -462,7 +462,7 @@ func getPaymentsFromDb() ([]*Payment, error) {
 	for rows.Next() {
 		var payment Payment
 		var pledgeId sql.NullString
-		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &pledgeId, &payment.AccountType, &payment.State)
+		err = rows.Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &pledgeId, &payment.AccountType, &payment.Status)
 		if nil == err {
 			if pledgeId.Valid {
 				payment.PledgeId = pledgeId.String
@@ -483,7 +483,7 @@ func getPaymentsFromDb() ([]*Payment, error) {
 func getPaymentFromDb(id string) (Payment, error) {
 	var payment Payment
 	var pledgeId sql.NullString
-	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &pledgeId, &payment.AccountType, &payment.State)
+	err := db.QueryRow(GET_PAYMENT_QUERY, id).Scan(&payment.Id, &payment.CampaignId, &payment.PerkId, &pledgeId, &payment.AccountType, &payment.Status)
 	if pledgeId.Valid {
 		payment.PledgeId = pledgeId.String
 	}
@@ -545,7 +545,7 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 
 func makePaymentHandler(res http.ResponseWriter, req *http.Request, payment Payment) (int, string) {
 	payment.Id = uuid.NewV4().String()
-	payment.UpdateState("pending")
+	payment.UpdateStatus("pending")
 
 	paymentsCache.AddOrReplacePayment(&payment)
 	res.Header().Set(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE)

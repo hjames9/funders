@@ -309,19 +309,19 @@ func main() {
 		log.Fatal("Unable to retrieve account types from database")
 	}
 
-	//Allowable payment states
-	paymentStatesStr := getPaymentStates()
-	if len(paymentStatesStr) > 0 {
-		paymentStates = make(map[string]bool)
+	//Allowable payment statuses
+	paymentStatusesStr := getPaymentStatuses()
+	if len(paymentStatusesStr) > 0 {
+		paymentStatuses = make(map[string]bool)
 
-		paymentStatesArr := strings.Split(paymentStatesStr, ",")
-		for _, state := range paymentStatesArr {
-			paymentStates[state] = true
+		paymentStatusesArr := strings.Split(paymentStatusesStr, ",")
+		for _, status := range paymentStatusesArr {
+			paymentStatuses[status] = true
 		}
 
-		log.Printf("Allowable payment states: %s", paymentStatesStr)
+		log.Printf("Allowable payment statuses: %s", paymentStatusesStr)
 	} else {
-		log.Fatal("Unable to retrieve payment states from database")
+		log.Fatal("Unable to retrieve payment statuses from database")
 	}
 
 	//Robot detection field

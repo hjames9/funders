@@ -27,6 +27,6 @@ INSERT INTO funders.payments VALUES ('cef6fab5-ddb0-442e-ab10-b281dd982525', 313
 
 -- Pledges
 
-INSERT INTO funders.pledges VALUES ('8ae7e044-09f4-4e9e-981d-a6110e8bdc38', 31337, 31337, 'donovan.james@gmail.com', DEFAULT, TRUE, 25, 'USD', TRUE, 'Donovan James', DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.pledges VALUES ('5ccf7b22-6868-4583-8790-11898d9b51b8', 31337, 31337, 'rocman.offman@gmail.com', DEFAULT, TRUE, 25, 'USD', TRUE, 'Rocman Offman', DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.pledges VALUES ('592bec2a-14bd-4de8-8538-90c568b5770f', 31337, 31340, 'raul.ferris@gmail.com', DEFAULT, TRUE, 500, 'USD', FALSE, DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.pledges VALUES ('8ae7e044-09f4-4e9e-981d-a6110e8bdc38', 31337, 31337, 'donovan.james@gmail.com', DEFAULT, TRUE, 25, 'USD', TRUE, 'Donovan James', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.pledges VALUES ('5ccf7b22-6868-4583-8790-11898d9b51b8', 31337, 31337, 'rocman.offman@gmail.com', DEFAULT, TRUE, 25, 'USD', TRUE, 'Rocman Offman', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.pledges VALUES ('592bec2a-14bd-4de8-8538-90c568b5770f', 31337, 31340, 'raul.ferris@gmail.com', DEFAULT, TRUE, 500, 'USD', FALSE, DEFAULT, DEFAULT, DEFAULT, current_timestamp, current_timestamp);

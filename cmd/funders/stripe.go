@@ -96,7 +96,7 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 		}
 
 		if ch.Paid {
-			payment.UpdateState("success")
+			payment.UpdateStatus("success")
 			if campaignExists {
 				campaign.IncrementAmtRaised(payment.Amount)
 				campaign.IncrementNumBackers(1)
@@ -107,14 +107,14 @@ func makeStripePayment(payment *Payment, waitGroup *sync.WaitGroup) error {
 				perk.IncrementNumClaimed(1)
 			}
 		} else {
-			payment.UpdateState("failure")
+			payment.UpdateStatus("failure")
 			payment.UpdateFailureReason(ch.FailMsg)
 		}
 	} else {
 		log.Print(err)
 		log.Print("Failed processing payment with processor")
 		payment.PaymentProcessorResponses = fmt.Sprintf("{\"%s\"}", strings.Replace(err.Error(), "\"", "\\\"", -1))
-		payment.UpdateState("failure")
+		payment.UpdateStatus("failure")
 
 		if stripeErr, ok := err.(*stripe.Error); ok {
 			switch stripeErr.Code {

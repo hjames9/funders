@@ -3,7 +3,7 @@ SET search_path TO funders,public;
 COMMENT ON SCHEMA funders IS 'Funders schema holds all objects for application';
 
 COMMENT ON TYPE account_type IS 'Enumeration for type of payment';
-COMMENT ON TYPE payment_state IS 'Enumeration for state of payment';
+COMMENT ON TYPE payment_status IS 'Enumeration for status of payment';
 
 -- Campaigns
 
@@ -69,7 +69,7 @@ COMMENT ON COLUMN payments.postal_code IS 'Shipping postal code for perk';
 COMMENT ON COLUMN payments.country IS 'Shipping country for perk';
 COMMENT ON COLUMN payments.amount IS 'Amount of the payment';
 COMMENT ON COLUMN payments.currency IS 'Currency of the payment';
-COMMENT ON COLUMN payments.state IS 'Current state of the payment';
+COMMENT ON COLUMN payments.status IS 'Current status of the payment';
 COMMENT ON COLUMN payments.contact_email IS 'Contact e-mail of backer';
 COMMENT ON COLUMN payments.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
 COMMENT ON COLUMN payments.advertise IS 'Whether to advertise user''s payment';
@@ -104,6 +104,7 @@ COMMENT ON COLUMN pledges.currency IS 'Currency of the pledge';
 COMMENT ON COLUMN pledges.advertise IS 'Whether to advertise user''s pledge';
 COMMENT ON COLUMN pledges.advertise_name IS 'Name to advertise user''s pledge';
 COMMENT ON COLUMN pledges.replied_to IS 'Whether pledge user was replied to or not';
+COMMENT ON COLUMN pledges.requested_payment IS 'Amount of times payment was requested from pledger';
 COMMENT ON COLUMN pledges.created_at IS 'Timestamp of pledge creation.';
 COMMENT ON COLUMN pledges.updated_at IS 'Timestamp of last time pledge was updated';
 
@@ -178,7 +179,7 @@ COMMENT ON COLUMN active_payments.postal_code IS 'Shipping postal code for perk'
 COMMENT ON COLUMN active_payments.country IS 'Shipping country for perk';
 COMMENT ON COLUMN active_payments.amount IS 'Amount of the payment';
 COMMENT ON COLUMN active_payments.currency IS 'Currency of the payment';
-COMMENT ON COLUMN active_payments.state IS 'Current state of the payment';
+COMMENT ON COLUMN active_payments.status IS 'Current status of the payment';
 COMMENT ON COLUMN active_payments.contact_email IS 'Contact e-mail of backer';
 COMMENT ON COLUMN active_payments.contact_opt_in IS 'Flag if user wants to opt in for future mailings';
 COMMENT ON COLUMN active_payments.advertise IS 'Whether to advertise user''s payment';
@@ -209,6 +210,7 @@ COMMENT ON COLUMN active_pledges.contact_opt_in IS 'Flag if user wants to opt in
 COMMENT ON COLUMN active_pledges.advertise IS 'Whether to advertise user''s pledge';
 COMMENT ON COLUMN active_pledges.advertise_name IS 'Use alternate value to advertise user''s pledge';
 COMMENT ON COLUMN active_pledges.replied_to IS 'Whether pledge user was replied to or not';
+COMMENT ON COLUMN active_pledges.requested_payment IS 'Amount of times payment was requested from pledger';
 COMMENT ON COLUMN active_pledges.created_at IS 'Timestamp of pledge creation.';
 COMMENT ON COLUMN active_pledges.updated_at IS 'Timestamp of last time pledge was updated';
 
