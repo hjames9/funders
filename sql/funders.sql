@@ -101,9 +101,9 @@ CREATE TABLE payments
     CHECK(amount > 0)
 );
 
-CREATE UNIQUE INDEX payments_pledge_id_idx ON payments(pledge_id);
+CREATE UNIQUE INDEX payments_pledge_id_idx ON payments(pledge_id, status);
 
-CREATE VIEW campaign_backers
+CREATE OR REPLACE VIEW campaign_backers
 AS
 SELECT id,
        name,
@@ -137,7 +137,7 @@ LEFT OUTER JOIN
 ON campaigns.id = pledgers.campaign_id
 ORDER BY id ASC;
 
-CREATE VIEW perk_claims
+CREATE OR REPLACE VIEW perk_claims
 AS
 SELECT perks.id,
        perks.campaign_id,
@@ -176,7 +176,7 @@ ON perks.campaign_id = pledged.campaign_id
     AND perks.id = pledged.perk_id
 ORDER BY campaign_id ASC;
 
-CREATE VIEW active_payments
+CREATE OR REPLACE VIEW active_payments
 AS
 SELECT
     payments.id,
@@ -212,7 +212,7 @@ INNER JOIN perks
 ON payments.perk_id = perks.id
 WHERE campaigns.active = TRUE AND perks.active = TRUE;
 
-CREATE VIEW active_pledges
+CREATE OR REPLACE VIEW active_pledges
 AS
 SELECT
     pledges.id,
@@ -229,6 +229,8 @@ SELECT
     pledges.advertise_name,
     pledges.replied_to,
     pledges.requested_payment,
+    payments.id AS payment_id,
+    payments.status AS payment_status,
     pledges.created_at,
     pledges.updated_at
 FROM pledges
@@ -239,11 +241,9 @@ ON pledges.perk_id = perks.id
 LEFT OUTER JOIN payments
 ON pledges.id = payments.pledge_id
 WHERE campaigns.active = TRUE AND perks.active = TRUE
-AND payments.pledge_id IS NULL OR payments.status <> 'success';
---Alternatively can use a subquery and NOT IN but I believe LEFT OUTER JOIN is more performant
---AND id NOT IN (SELECT pledge_id FROM payments WHERE pledge_id IS NOT NULL);
+AND pledges.id NOT IN (SELECT pledge_id FROM payments WHERE status = 'success' AND pledge_id IS NOT NULL);
 
-CREATE VIEW advertisements
+CREATE OR REPLACE VIEW advertisements
 AS
 SELECT
     'payment' AS type,
