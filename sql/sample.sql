@@ -1,8 +1,8 @@
 -- Projects
 
-INSERT INTO funders.campaigns VALUES (DEFAULT, 'alpha', 'Alpha is the best consumer electronics product ever', 10000, '2016-05-01', '2016-11-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.campaigns VALUES (DEFAULT, 'omega', 'Omega is the worst consumer electronics product ever', 50000, '2017-08-01', '2017-10-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
-INSERT INTO funders.campaigns VALUES (DEFAULT, 'kappa', 'Kappa is an alright consumer electronics product', 75000, '2016-07-01', '2016-09-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.campaigns VALUES (DEFAULT, 'alpha', 'Alpha is the best consumer electronics product ever', 10000, 'USD', '2016-05-01', '2016-11-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.campaigns VALUES (DEFAULT, 'omega', 'Omega is the worst consumer electronics product ever', 50000, 'USD', '2017-08-01', '2017-10-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
+INSERT INTO funders.campaigns VALUES (DEFAULT, 'kappa', 'Kappa is an alright consumer electronics product', 75000, 'USD', '2016-07-01', '2016-09-01', DEFAULT, DEFAULT, current_timestamp, current_timestamp);
 
 -- Perks
 

@@ -18,6 +18,7 @@ type Campaign struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	Goal        float64      `json:"goal"`
+	Currency    string       `json:"currency"`
 	AmtRaised   float64      `json:"-"`
 	NumBackers  int64        `json:"-"`
 	AmtPledged  float64      `json:"-"`

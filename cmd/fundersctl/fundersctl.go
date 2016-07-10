@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	ADD_CAMPAIGN_QUERY    = "INSERT INTO funders.campaigns (name, description, goal, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+	ADD_CAMPAIGN_QUERY    = "INSERT INTO funders.campaigns (name, description, goal, currency, start_date, end_date, flexible, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id"
 	ADD_PERK_QUERY        = "INSERT INTO funders.perks (campaign_id, name, description, price, currency, available_for_payment, available_for_pledge, ship_date, created_at, updated_at) VALUES((SELECT id FROM funders.campaigns WHERE name = $1), $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"
 	RM_CAMPAIGN_QUERY     = "DELETE FROM funders.campaigns WHERE name = $1"
 	RM_PERK_QUERY         = "DELETE FROM funders.perks WHERE name = $1 AND campaign_id IN (SELECT id FROM funders.campaigns WHERE name = $2)"
@@ -57,6 +57,13 @@ func getCampaignFromCommandLine() (common.Campaign, error) {
 		fmt.Print("Enter campaign goal (numeric value): ")
 		goalStr, err = reader.ReadString('\n')
 		campaign.Goal, err = strconv.ParseFloat(strings.TrimSpace(goalStr), 64)
+		if nil != err {
+			break
+		}
+
+		fmt.Print("Enter campaign goal currency: ")
+		campaign.Currency, err = reader.ReadString('\n')
+		campaign.Currency = strings.TrimSpace(campaign.Currency)
 		if nil != err {
 			break
 		}
@@ -164,7 +171,7 @@ func getPerkFromCommandLine() (common.Perk, error) {
 }
 
 func addCampaignToDatabase(db *sql.DB, campaign *common.Campaign) (int64, error) {
-	err := db.QueryRow(ADD_CAMPAIGN_QUERY, campaign.Name, campaign.Description, campaign.Goal, campaign.StartDate, campaign.EndDate, campaign.Flexible, time.Now(), time.Now()).Scan(&campaign.Id)
+	err := db.QueryRow(ADD_CAMPAIGN_QUERY, campaign.Name, campaign.Description, campaign.Goal, campaign.Currency, campaign.StartDate, campaign.EndDate, campaign.Flexible, time.Now(), time.Now()).Scan(&campaign.Id)
 	return campaign.Id, err
 }
 
@@ -220,7 +227,7 @@ func getCampaignFieldsFromCommandLine() (map[string]interface{}, error) {
 
 	for {
 		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Enter campaign field name (name, description, goal, start_date, end_date, flexible): ")
+		fmt.Print("Enter campaign field name (name, description, goal, currency, start_date, end_date, flexible): ")
 		campaignFieldName, err = reader.ReadString('\n')
 		campaignFieldName = strings.TrimSpace(campaignFieldName)
 		if nil != err {
@@ -237,6 +244,8 @@ func getCampaignFieldsFromCommandLine() (map[string]interface{}, error) {
 		case "name":
 			fallthrough
 		case "description":
+			fallthrough
+		case "currency":
 			campaignFieldNames[campaignFieldName] = strings.TrimSpace(campaignFieldValue)
 		case "goal":
 			campaignFieldNames[campaignFieldName], err = strconv.ParseFloat(strings.TrimSpace(campaignFieldValue), 64)

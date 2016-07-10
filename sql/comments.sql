@@ -13,6 +13,7 @@ COMMENT ON COLUMN campaigns.id IS 'Primary key id of the campaigns table';
 COMMENT ON COLUMN campaigns.name IS 'Name of the campaign';
 COMMENT ON COLUMN campaigns.description IS 'Description of the campaign';
 COMMENT ON COLUMN campaigns.goal IS 'Monetary goal of the campaign';
+COMMENT ON COLUMN campaigns.currency IS 'Currency of the goal of the campaign';
 COMMENT ON COLUMN campaigns.start_date IS 'The starting date of the campaign';
 COMMENT ON COLUMN campaigns.end_date IS 'The ending date of the campaign';
 COMMENT ON COLUMN campaigns.flexible IS 'Flag if campaign is flexible or not.  Flexible is if campaign is all or none';
@@ -125,6 +126,7 @@ COMMENT ON COLUMN campaign_backers.id IS 'Primary key id of the campaigns table'
 COMMENT ON COLUMN campaign_backers.name IS 'Name of campaigns table';
 COMMENT ON COLUMN campaign_backers.description IS 'Description of campaigns table';
 COMMENT ON COLUMN campaign_backers.goal IS 'Monetary goal of campaigns table';
+COMMENT ON COLUMN campaign_backers.currency IS 'Currency of the goal of the campaign';
 COMMENT ON COLUMN campaign_backers.amt_raised IS 'Amount of money raised in the campaign';
 COMMENT ON COLUMN campaign_backers.num_backers IS 'Number of backers in the campaign';
 COMMENT ON COLUMN campaign_backers.amt_pledged IS 'Amount of money pledged in the campaign';

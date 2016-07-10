@@ -177,7 +177,8 @@ function loadFunders()
     $('#amtRaised').text(campaign.amtRaised);
     $('#numPledgers').text(campaign.numPledgers);
     $('#amtPledged').text(campaign.amtPledged);
-    $('#goal').text(campaign.goal);
+    $('#goal').text("$" + campaign.goal);
+    $('#goalCurrency').text(" " + campaign.currency);
     $('#startDate').text(campaign.startDate);
     $('#endDate').text(campaign.endDate);
 

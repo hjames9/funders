@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, amt_raised, num_backers, amt_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
-	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, amt_raised, num_backers, amt_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
+	GET_ALL_CAMPAIGNS_QUERY = "SELECT id, name, description, goal, currency, amt_raised, num_backers, amt_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE"
+	GET_CAMPAIGN_QUERY      = "SELECT id, name, description, goal, currency, amt_raised, num_backers, amt_pledged, num_pledgers, start_date, end_date, flexible FROM funders.campaign_backers WHERE active = TRUE AND name = $1"
 	CAMPAIGN_URL            = "/campaigns"
 )
 
@@ -137,7 +137,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 	var campaigns []*Campaign
 	for rows.Next() {
 		var campaign Campaign
-		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.AmtRaised, &campaign.NumBackers, &campaign.AmtPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+		err = rows.Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.Currency, &campaign.AmtRaised, &campaign.NumBackers, &campaign.AmtPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 		if nil == err {
 			campaigns = append(campaigns, &campaign)
 		} else {
@@ -154,7 +154,7 @@ func getCampaignsFromDb() ([]*Campaign, error) {
 
 func getCampaignFromDb(name string) (Campaign, error) {
 	var campaign Campaign
-	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.AmtRaised, &campaign.NumBackers, &campaign.AmtPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
+	err := db.QueryRow(GET_CAMPAIGN_QUERY, name).Scan(&campaign.Id, &campaign.Name, &campaign.Description, &campaign.Goal, &campaign.Currency, &campaign.AmtRaised, &campaign.NumBackers, &campaign.AmtPledged, &campaign.NumPledgers, &campaign.StartDate, &campaign.EndDate, &campaign.Flexible)
 	return campaign, err
 }
 
