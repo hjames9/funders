@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bitbucket.org/savewithus/funders"
 	"encoding/json"
 	"fmt"
-	"github.com/hjames9/funders"
 	"github.com/martini-contrib/binding"
 	"log"
 	"net/http"

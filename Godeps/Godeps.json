@@ -1,7 +1,7 @@
 {
-	"ImportPath": "github.com/hjames9/funders",
+	"ImportPath": "bitbucket.org/savewithus/funders",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v65",
+	"GodepVersion": "v74",
 	"Packages": [
 		"./..."
 	],

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bitbucket.org/savewithus/funders"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hjames9/funders"
 	"log"
 	"net/http"
 	"strings"

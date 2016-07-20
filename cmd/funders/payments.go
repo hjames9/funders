@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bitbucket.org/savewithus/funders"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/hjames9/funders"
 	"github.com/martini-contrib/binding"
 	"github.com/satori/go.uuid"
 	"log"

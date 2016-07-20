@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bitbucket.org/savewithus/funders"
 	"encoding/json"
 	"fmt"
-	"github.com/hjames9/funders"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/bitcoinreceiver"
 	"github.com/stripe/stripe-go/charge"

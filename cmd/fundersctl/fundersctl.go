@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bitbucket.org/savewithus/funders"
 	"bufio"
 	"bytes"
 	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/hjames9/funders"
 	_ "github.com/lib/pq"
 	"log"
 	"os"

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bitbucket.org/savewithus/funders"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/go-martini/martini"
-	"github.com/hjames9/funders"
 	_ "github.com/lib/pq"
 	"github.com/logpacker/PayPal-Go-SDK"
 	"github.com/martini-contrib/binding"
