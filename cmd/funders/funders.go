@@ -24,16 +24,18 @@ import (
 )
 
 const (
-	USER_AGENT_HEADER   = "User-Agent"
 	CONTENT_TYPE_HEADER = "Content-Type"
 	LOCATION_HEADER     = "Location"
 	ORIGIN_HEADER       = "Origin"
 	JSON_CONTENT_TYPE   = "application/json"
+	XML_CONTENT_TYPE    = "application/xml"
+	TEXT_CONTENT_TYPE   = "text/plain"
 	GET_METHOD          = "GET"
 	HEAD_METHOD         = "HEAD"
 	POST_METHOD         = "POST"
 	PUT_METHOD          = "PUT"
 	PATCH_METHOD        = "PATCH"
+	ROBOTS_TXT_URL      = "/robots.txt"
 )
 
 var db *sql.DB
@@ -41,6 +43,7 @@ var stringSizeLimit int
 var botDetection common.BotDetection
 var gzipResponse bool
 var gzipCompressionLevel int
+var robotsTxtResponse bool
 
 func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
 	if len(field) > sizeLimit {
@@ -193,6 +196,18 @@ func runHttpServer() {
 	//Advertise payments
 	martini_.Get(ADVERTISEMENTS_URL, getAdvertisementHandler, errorHandler)
 	martini_.Head(ADVERTISEMENTS_URL, getAdvertisementHandler, errorHandler)
+
+	//robots.txt
+	if robotsTxtResponse {
+		getRobotsTxt := func(res http.ResponseWriter, req *http.Request) (int, string) {
+			res.Header().Set(CONTENT_TYPE_HEADER, TEXT_CONTENT_TYPE)
+			var robotsTxt common.RobotsTxt
+			robotsTxt.AddRecord(common.RobotsRecord{[]string{"*"}, []string{"/"}})
+			return http.StatusOK, robotsTxt.String()
+		}
+		martini_.Get(ROBOTS_TXT_URL, getRobotsTxt, errorHandler)
+		martini_.Head(ROBOTS_TXT_URL, getRobotsTxt, errorHandler)
+	}
 
 	martini_.NotFound(notFoundHandler)
 	martini_.Run()
@@ -504,6 +519,21 @@ func main() {
 	} else {
 		advertisements.AddOrReplaceAdvertisements(ads)
 		log.Printf("Initialized %d advertisements", len(ads))
+	}
+
+	//robots.txt
+	robotsTxtResponseStr := common.GetenvWithDefault("ROBOTS_TXT", "false")
+	robotsTxtResponse, err = strconv.ParseBool(robotsTxtResponseStr)
+	if nil != err {
+		robotsTxtResponse = false
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to false.", "ROBOTS_TXT", robotsTxtResponseStr)
+		log.Print(err)
+	}
+
+	if robotsTxtResponse {
+		log.Print("robots.txt support enabled")
+	} else {
+		log.Print("robots.txt support disabled")
 	}
 
 	//Signal handler

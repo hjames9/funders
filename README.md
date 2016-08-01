@@ -34,6 +34,7 @@ A Go-based http server to create your own crowdfunding campaign on your website.
     STRIPE_KEY=sk_test_BQokikJOvBiI2HlWgH4olfQ2 (no default)
     PAYPAL_CLIENT_ID=blahblah (no default)
     PAYPAL_SECRET_ID=secretkey (no default)
+    ROBOTS_TXT=true (default is false)
 
 ## fundersctl - Utility to create/delete/update campaigns and perks
 

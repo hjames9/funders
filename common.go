@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	DB_DRIVER   = "postgres"
-	TIME_LAYOUT = "2006-01-02"
+	DB_DRIVER         = "postgres"
+	TIME_LAYOUT       = "2006-01-02"
+	USER_AGENT_HEADER = "User-Agent"
 )
 
 type Campaign struct {
