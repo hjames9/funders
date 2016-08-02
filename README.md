@@ -35,6 +35,8 @@ A Go-based http server to create your own crowdfunding campaign on your website.
     PAYPAL_CLIENT_ID=blahblah (no default)
     PAYPAL_SECRET_ID=secretkey (no default)
     ROBOTS_TXT=true (default is false)
+    SITEMAP_XML=true (default is false)
+    FAVICON_ICO=true (default is false)
 
 ## fundersctl - Utility to create/delete/update campaigns and perks
 

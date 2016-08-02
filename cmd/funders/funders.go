@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const (
@@ -36,6 +37,8 @@ const (
 	PUT_METHOD          = "PUT"
 	PATCH_METHOD        = "PATCH"
 	ROBOTS_TXT_URL      = "/robots.txt"
+	SITEMAP_XML_URL     = "/sitemap.xml"
+	FAVICON_ICO_URL     = "/favicon.ico"
 )
 
 var db *sql.DB
@@ -44,6 +47,8 @@ var botDetection common.BotDetection
 var gzipResponse bool
 var gzipCompressionLevel int
 var robotsTxtResponse bool
+var sitemapXmlResponse bool
+var faviconIcoResponse bool
 
 func validateSizeLimit(field string, fieldName string, sizeLimit int, errors binding.Errors) binding.Errors {
 	if len(field) > sizeLimit {
@@ -207,6 +212,53 @@ func runHttpServer() {
 		}
 		martini_.Get(ROBOTS_TXT_URL, getRobotsTxt, errorHandler)
 		martini_.Head(ROBOTS_TXT_URL, getRobotsTxt, errorHandler)
+	}
+
+	//sitemap.xml
+	if sitemapXmlResponse {
+		getSitemapXml := func(res http.ResponseWriter, req *http.Request) (int, string) {
+			res.Header().Set(CONTENT_TYPE_HEADER, XML_CONTENT_TYPE)
+
+			hostname := fmt.Sprintf("%s://%s", common.GetScheme(req), req.Host)
+			var urlSet common.UrlSet
+
+			campaigns.lock.RLock()
+			defer campaigns.lock.RUnlock()
+			for key, _ := range campaigns.nameValues {
+				url := fmt.Sprintf("%s%s?name=%s", hostname, CAMPAIGN_URL, key)
+				urlSet.AddUrl(common.Url{Location: url, LastModification: time.Now(), ChangeFrequency: common.Always, Priority: 1.0})
+			}
+
+			perks.lock.RLock()
+			defer perks.lock.RUnlock()
+			for key, _ := range perks.nameValues {
+				url := fmt.Sprintf("%s%s?campaign_name=%s", hostname, PERKS_URL, key)
+				urlSet.AddUrl(common.Url{Location: url, LastModification: time.Now(), ChangeFrequency: common.Always, Priority: 0.8})
+			}
+
+			advertisements.lock.RLock()
+			defer advertisements.lock.RUnlock()
+			for key, _ := range advertisements.nameValues {
+				url := fmt.Sprintf("%s%s?campaign_name=%s", hostname, ADVERTISEMENTS_URL, key)
+				urlSet.AddUrl(common.Url{Location: url, LastModification: time.Now(), ChangeFrequency: common.Always, Priority: 0.3})
+			}
+
+			return http.StatusOK, urlSet.String()
+		}
+		martini_.Get(SITEMAP_XML_URL, getSitemapXml, errorHandler)
+		martini_.Head(SITEMAP_XML_URL, getSitemapXml, errorHandler)
+	}
+
+	//favicon.ico
+	if faviconIcoResponse {
+		getFaviconIco := func(res http.ResponseWriter, req *http.Request) (int, string) {
+			res.Header().Set(CONTENT_TYPE_HEADER, common.ICO_CONTENT_TYPE)
+			var favicon common.FaviconIco
+			favicon.CreateImage(0xA384C1FF, 16, 16)
+			return http.StatusOK, string(favicon.GetImageData())
+		}
+		martini_.Get(FAVICON_ICO_URL, getFaviconIco, errorHandler)
+		martini_.Head(FAVICON_ICO_URL, getFaviconIco, errorHandler)
 	}
 
 	martini_.NotFound(notFoundHandler)
@@ -534,6 +586,36 @@ func main() {
 		log.Print("robots.txt support enabled")
 	} else {
 		log.Print("robots.txt support disabled")
+	}
+
+	//sitemap.xml
+	sitemapXmlResponseStr := common.GetenvWithDefault("SITEMAP_XML", "false")
+	sitemapXmlResponse, err = strconv.ParseBool(sitemapXmlResponseStr)
+	if nil != err {
+		sitemapXmlResponse = false
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to false.", "SITEMAP_XML", sitemapXmlResponseStr)
+		log.Print(err)
+	}
+
+	if sitemapXmlResponse {
+		log.Print("sitemap.xml support enabled")
+	} else {
+		log.Print("sitemap.xml support disabled")
+	}
+
+	//favicon.ico
+	faviconIcoResponseStr := common.GetenvWithDefault("FAVICON_ICO", "false")
+	faviconIcoResponse, err = strconv.ParseBool(faviconIcoResponseStr)
+	if nil != err {
+		faviconIcoResponse = false
+		log.Printf("Error converting boolean input for field %s with value %s. Defaulting to false.", "FAVICON_ICO", faviconIcoResponseStr)
+		log.Print(err)
+	}
+
+	if faviconIcoResponse {
+		log.Print("favicon.ico support enabled")
+	} else {
+		log.Print("favicon.ico support disabled")
 	}
 
 	//Signal handler

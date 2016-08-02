@@ -3,6 +3,7 @@ package common
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -87,4 +88,17 @@ func CreateSqlString(value string) sql.NullString {
 		nullValue = sql.NullString{value, true}
 	}
 	return nullValue
+}
+
+func GetScheme(request *http.Request) string {
+	prot := request.Header.Get("X-Forwarded-Prot")
+	if len(prot) > 0 {
+		return prot
+	}
+
+	if nil == request.TLS {
+		return "http"
+	} else {
+		return "https"
+	}
 }
