@@ -13,6 +13,7 @@ const (
 	DB_DRIVER         = "postgres"
 	TIME_LAYOUT       = "2006-01-02"
 	USER_AGENT_HEADER = "User-Agent"
+	XFP_HEADER        = "X-Forwarded-Proto"
 )
 
 type Campaign struct {
@@ -91,7 +92,7 @@ func CreateSqlString(value string) sql.NullString {
 }
 
 func GetScheme(request *http.Request) string {
-	prot := request.Header.Get("X-Forwarded-Prot")
+	prot := request.Header.Get(XFP_HEADER)
 	if len(prot) > 0 {
 		return prot
 	}
