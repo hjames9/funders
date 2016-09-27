@@ -337,6 +337,7 @@ func main() {
 		if nil == err {
 			log.Printf("Successfully created paypal client with access token %s", accessToken)
 		} else {
+			log.Print(err)
 			log.Fatal("Error creating paypal client with access token")
 		}
 	}
