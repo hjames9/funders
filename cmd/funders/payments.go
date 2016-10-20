@@ -528,6 +528,7 @@ func getPaymentHandler(res http.ResponseWriter, req *http.Request) (int, string)
 		if sql.ErrNoRows == err {
 			responseStr := fmt.Sprintf("%s not found", id)
 			response = common.Response{Code: http.StatusNotFound, Message: responseStr}
+			log.Print(responseStr)
 			log.Print(err)
 		} else if nil != err {
 			responseStr := "Could not get payment due to server error"

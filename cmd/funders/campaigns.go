@@ -194,6 +194,7 @@ func getCampaignHandler(res http.ResponseWriter, req *http.Request) (int, string
 			responseStr := fmt.Sprintf("%s not found", campaignName)
 			response = common.Response{Code: http.StatusNotFound, Message: responseStr}
 			log.Print(responseStr)
+			log.Print(err)
 		} else if nil != err {
 			responseStr := "Could not get campaign due to server error"
 			response = common.Response{Code: http.StatusInternalServerError, Message: responseStr}
