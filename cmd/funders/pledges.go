@@ -287,6 +287,7 @@ func getPledge(id string) (*Pledge, error) {
 			pledge = pledges.AddOrReplacePledge(&pledgeDb)
 			log.Print("Retrieved pledge from database")
 		} else {
+			log.Print(err)
 			log.Print("Pledge not found in database")
 		}
 	} else {

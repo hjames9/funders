@@ -149,6 +149,7 @@ func getPerks(name string) ([]*Perk, error) {
 			perks.AddOrReplacePerks(pks)
 			log.Print("Retrieved perks from database")
 		} else {
+			log.Print(err)
 			log.Print("Perks not found in database")
 		}
 	} else {

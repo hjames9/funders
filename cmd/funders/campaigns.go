@@ -168,6 +168,7 @@ func getCampaign(name string) (*Campaign, error) {
 			campaign = campaigns.AddOrReplaceCampaign(&campaignDb)
 			log.Print("Retrieved campaign from database")
 		} else {
+			log.Print(err)
 			log.Print("Campaign not found in database")
 		}
 	} else {

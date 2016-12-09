@@ -146,6 +146,7 @@ func getAdvertisements(name string) ([]*Advertisement, error) {
 			advertisements.AddOrReplaceAdvertisements(ads)
 			log.Print("Retrieved advertisements from database")
 		} else {
+			log.Print(err)
 			log.Print("Advertisements not found in database")
 		}
 	} else {
