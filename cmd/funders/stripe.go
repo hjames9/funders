@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bitbucket.org/savewithus/funders"
+	"bitbucket.org/padium/funders"
 	"encoding/json"
 	"fmt"
 	"github.com/stripe/stripe-go"

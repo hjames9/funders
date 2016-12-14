@@ -1,5 +1,5 @@
 {
-	"ImportPath": "bitbucket.org/savewithus/funders",
+	"ImportPath": "bitbucket.org/padium/funders",
 	"GoVersion": "go1.7",
 	"GodepVersion": "v74",
 	"Packages": [

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bitbucket.org/savewithus/funders"
+	"bitbucket.org/padium/funders"
 	"database/sql"
 	"encoding/json"
 	"errors"
