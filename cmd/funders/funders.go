@@ -119,8 +119,12 @@ func errorHandler(errors binding.Errors, res http.ResponseWriter) {
 		}
 
 		log.Print(response.Message)
-		jsonStr, _ := json.Marshal(response)
-		res.Write(jsonStr)
+		jsonStr, err := json.Marshal(response)
+		if nil != err {
+			log.Print(err)
+		} else {
+			res.Write(jsonStr)
+		}
 	}
 }
 
